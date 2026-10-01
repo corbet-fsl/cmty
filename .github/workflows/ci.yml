@@ -82,7 +82,7 @@ jobs:
         json.dump([{k:p.get(k) for k in ("name","version","license","source")} for p in d["packages"]],sys.stdout,indent=2)'
         > dependency-licenses.json
     - run: cargo test --locked
-    - uses: actions/upload-artifact@v4
+    - uses: actions/upload-artifact@v7
       if: always()
       with:
         name: dependency-lock
