@@ -118,7 +118,9 @@ where
         let store = storage.challenges();
         let community = store.community().clone();
         let name = community_text(&community)?;
-        if parts.policy.key_ring().map_err(|_| Error::Policy)?.issuer() != name {
+        if parts.policy.key_ring().map_err(|_| Error::Policy)?.issuer() != name
+            || parts.membership.community() != name
+        {
             return Err(Error::Scope);
         }
         if config.challenge_lifetime == 0 || config.challenge_lifetime > 300 {

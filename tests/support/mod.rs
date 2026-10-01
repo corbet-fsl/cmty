@@ -110,14 +110,14 @@ pub struct Fixture<S: Storage> {
     pub auth: cmbr::Login,
     pub clock: Clock,
     pub credential_id: ckyh::CredentialID,
+    pub devices: Vec<[u8; 32]>,
     pub rules: crbk::Rulebook,
     pub fingerprint: [u8; 32],
     pub config_until: u64,
     pub directory: tempfile::TempDir,
 }
 
-pub async fn open(url: &str, token: &str) -> crlt::Db {
-    let db = crlt::Db::open(crlt::Config::new(url, token)).await.unwrap();
+pub fn migrations() -> Vec<crlt::Migration<'static>> {
     let mut schemas = cmbr::SCHEMAS.to_vec();
     schemas.extend([
         ("cgts", cgts::SCHEMA),
@@ -127,11 +127,16 @@ pub async fn open(url: &str, token: &str) -> crlt::Db {
         ("cpsd", storage::SCHEMA),
         ("cmbr-device-keys", cmbr::DEVICE_KEYS_SCHEMA),
     ]);
-    let migrations: Vec<_> = schemas
-        .iter()
+    schemas
+        .into_iter()
         .enumerate()
         .map(|(i, (name, sql))| crlt::Migration::new(i as u32 + 1, name, sql))
-        .collect();
+        .collect()
+}
+
+pub async fn open(url: &str, token: &str) -> crlt::Db {
+    let db = crlt::Db::open(crlt::Config::new(url, token)).await.unwrap();
+    let migrations = migrations();
     db.migrate(&migrations).await.unwrap();
     assert_eq!(db.migrate(&migrations).await.unwrap(), 0);
     db
@@ -454,6 +459,7 @@ pub async fn fixture_with_identity<S: Storage>(
         auth,
         clock,
         credential_id,
+        devices: DEVICES.to_vec(),
         rules,
         fingerprint,
         config_until: valid_until,
@@ -467,7 +473,7 @@ impl<S: Storage> Fixture<S> {
     pub fn admission(&self) -> Admission<'_> {
         Admission {
             authentication: &self.auth.authentication,
-            devices: &DEVICES,
+            devices: &self.devices,
             lease: crgs::YearMonth::new(2027, 9).unwrap(),
         }
     }
@@ -491,7 +497,7 @@ impl<S: Storage> Fixture<S> {
                 proof,
                 Admission {
                     authentication: &self.auth.authentication,
-                    devices: &DEVICES,
+                    devices: &self.devices,
                     lease: crgs::YearMonth::new(2027, 9).unwrap(),
                 },
                 now,

@@ -148,10 +148,17 @@ pub enum Outcome {
     Issued(Box<IssuedCredential>),
 }
 
+const _: () = assert!(cpsd::MAX_COMMUNITY_ID_LEN <= csgn::MAX_ISSUER_LEN);
+
 pub(crate) fn community_text(community: &CommunityId) -> crate::Result<&str> {
     let value = std::str::from_utf8(community.as_bytes()).map_err(|_| crate::Error::Scope)?;
-    if value.contains('\0') || value.len() > csgn::MAX_ISSUER_LEN {
+    // CommunityId already bounds bytes more tightly than the signing issuer.
+    if value.contains('\0') {
         return Err(crate::Error::Scope);
     }
     Ok(value)
 }
+
+#[cfg(test)]
+#[path = "../tests/unit/snapshots.rs"]
+mod tests;

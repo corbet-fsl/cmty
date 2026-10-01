@@ -1,4 +1,6 @@
 //! Full admission through real membership, gatekeeping, policy and libSQL.
+#[path = "cases/boundaries.rs"]
+mod boundaries;
 mod support;
 
 use cmty::{storage::MemoryStorage, *};
@@ -1243,6 +1245,15 @@ async fn another_passkey_preserves_admission_after_original_device_removal() {
         .finish_login(pending, response.into())
         .await
         .unwrap();
+    let second_key = ed25519_dalek::SigningKey::from_bytes(&[14; 32])
+        .verifying_key()
+        .to_bytes();
+    f.engine
+        .membership()
+        .authorize_device_key(&f.auth.authentication, second_key)
+        .await
+        .unwrap();
+    f.devices = vec![second_key];
     f.engine
         .membership()
         .revoke_passkey(
@@ -1269,6 +1280,7 @@ async fn another_passkey_preserves_admission_after_original_device_removal() {
     assert_eq!(after.claims.member_id, before.claims.member_id);
     assert_eq!(after.claims.handle, before.claims.handle);
     assert_eq!(after.claims.pins, before.claims.pins);
+    assert_eq!(after.claims.devices, vec![second_key]);
     assert_eq!(
         f.engine
             .membership()
