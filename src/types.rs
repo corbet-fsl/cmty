@@ -88,7 +88,7 @@ pub struct CredentialClaims {
     pub schema_version: u64,
     /// Community policy epoch.
     pub policy_epoch: u64,
-    /// Issuance in unsigned Unix seconds; returned, never persisted by cmnt.
+    /// Issuance in unsigned Unix seconds; returned, never persisted by cmty.
     pub issued: u64,
     /// Exclusive expiry.
     pub valid_until: u64,

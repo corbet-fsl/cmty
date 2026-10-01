@@ -1,6 +1,6 @@
 //! Shared storage contracts against memory, local libSQL, and optional Turso.
 
-use cmnt::{Error, storage::*};
+use cmty::{Error, storage::*};
 use cpsd::{ChallengeRecord, ChallengeStore, CommunityId};
 
 fn scope(name: &str) -> CommunityId {

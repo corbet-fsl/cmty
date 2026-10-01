@@ -1,4 +1,4 @@
-# cmnt
+# cmty
 
 Community admission for cvld, composed over cmbr, cgts and cplc.
 Native Rust, development API, FSL-1.1-ALv2; no registry publication.
@@ -8,7 +8,7 @@ See the [implemented contract](docs/CONTRACT.md).
 community origin. `verify` delegates the real proof to cgts/cpsd. `finish` binds
 that witness to the current passkey, collects checked gates, asks cplc, commits
 cmbr admission and returns cplc's Ed25519 COSE credential. cplc is the sole
-admission decision owner; cmnt contains no policy or lifetime implementation.
+admission decision owner; cmty contains no policy or lifetime implementation.
 
 Construct `Parts` from the real three facades on one shared crlt database.
 Configure cmbr/cplc with `community.admit`. Give the wallet `signed_request()`;
@@ -31,7 +31,7 @@ Slow gate checks run outside the policy mutex. Each facade retains its own
 per-member/CAS failure handling. No credential, login history or raw gate data
 is stored here.
 
-Append cmbr's complete schema set plus cgts, crbk, cplc, csgn and cmnt's cpsd
+Append cmbr's complete schema set plus cgts, crbk, cplc, csgn and cmty's cpsd
 challenge schema once to the shared migration history. Every dependency is pinned
 by full revision and CI rejects a second Corbet revision in the resolved lock.
 

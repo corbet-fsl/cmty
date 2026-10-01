@@ -32,7 +32,7 @@ impl Challenge {
 ///
 /// ```compile_fail
 /// let raw: cpsd::Pseudonym = todo!();
-/// let verified: cmnt::VerifiedPassport = raw.into();
+/// let verified: cmty::VerifiedPassport = raw.into();
 /// ```
 pub struct VerifiedPassport {
     member_id: String,
@@ -264,6 +264,34 @@ where
             .map_err(member_error)
     }
 
+    /// Begin another passkey for the authenticated membership, without approval.
+    /// The door owns session lifetime and keeps the pending state in that session.
+    pub async fn begin_additional_registration(
+        &self,
+        authentication: &cpky::Authentication,
+    ) -> Result<(
+        cpky::CreationChallengeResponse,
+        cmbr::PendingAdditionalRegistration,
+    )> {
+        self.membership
+            .begin_additional_registration(authentication)
+            .await
+            .map_err(member_error)
+    }
+
+    /// Complete the same membership's UV-required additional-passkey ceremony.
+    pub async fn finish_additional_registration(
+        &self,
+        authentication: &cpky::Authentication,
+        state: cmbr::PendingAdditionalRegistration,
+        response: cpky::RegisterPublicKeyCredential,
+    ) -> Result<cpky::StoredPasskey> {
+        self.membership
+            .finish_additional_registration(authentication, state, response)
+            .await
+            .map_err(member_error)
+    }
+
     /// Verify a fresh passport, collect cgts facts, decide through cplc, commit
     /// cmbr admission and issue cplc's Ed25519 COSE credential through csgn.
     pub async fn finish<T: RngCore + CryptoRng>(
@@ -287,7 +315,7 @@ where
 
     /// Also run transient/action-bound gates through the supplied real cgts
     /// instance. cgts checks each receipt's subject, action, revision and time.
-    /// Raw leaf inputs stay in this server callback, never in cmnt storage.
+    /// Raw leaf inputs stay in this server callback, never in cmty storage.
     pub async fn finish_with<T: RngCore + CryptoRng>(
         &self,
         rng: &mut T,

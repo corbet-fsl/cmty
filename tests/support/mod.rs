@@ -3,7 +3,7 @@ use std::sync::{
     atomic::{AtomicI64, Ordering},
 };
 
-use cmnt::{
+use cmty::{
     adapters::SharedRulebook,
     storage::{self, Storage},
     *,
@@ -459,7 +459,7 @@ impl<S: Storage> Fixture<S> {
         challenge: &Challenge,
         proof: &Presentation,
         now: u64,
-    ) -> cmnt::Result<Outcome> {
+    ) -> cmty::Result<Outcome> {
         self.clock.0.store(now as i64, Ordering::SeqCst);
         self.engine
             .finish(

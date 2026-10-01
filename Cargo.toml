@@ -1,41 +1,41 @@
 [package]
-name = "cmnt"
+name = "cmty"
 version = "0.0.0"
 edition = "2024"
 rust-version = "1.88"
 description = "Community facade of cvld: membership, gatekeeping and policy per community"
 license = "FSL-1.1-ALv2"
-repository = "https://github.com/corbet-libs/cmnt"
+repository = "https://github.com/corbet-libs/cmty"
 readme = "README.md"
 publish = false
 include = ["Cargo.toml", "src/**", "docs/**", "README.md", "LICENSE.md"]
 
 [dependencies]
-crgs = { git = "https://github.com/corbet-foss/crgs", rev = "b8f58b2bce71b5af5c97524fc4d709f669c43da1" }
-clbs = { git = "https://github.com/corbet-foss/clbs", rev = "2eeefb351484aadf430cd12083e0f198cde6a5b2" }
-cpns = { git = "https://github.com/corbet-foss/cpns", rev = "23968a9fa338791e70078c6070a6f1f3cf185ff7" }
-cpky = { git = "https://github.com/corbet-foss/cpky", rev = "e0bea9b1a6425fe17b65257e747d2c4621078845" }
-cmbr = { git = "https://github.com/corbet-libs/cmbr", rev = "c0aed4c3fd94438a3c3255db9c48e9bff26675db" }
-cgts = { git = "https://github.com/corbet-libs/cgts", rev = "ef70f442d41041ad98f91cf8bc8041d17706c630" }
+crgs = { git = "https://github.com/corbet-foss/crgs", rev = "e691f9266401d7af8dc0acfd02ab7553299eeb8a" }
+clbs = { git = "https://github.com/corbet-foss/clbs", rev = "873f2dd7388c6d5e025a27b4c55447c4b4892a2d" }
+cpns = { git = "https://github.com/corbet-foss/cpns", rev = "d68a3f3a2df322c513d0e754e452ee02aab7a5b9" }
+cpky = { git = "https://github.com/corbet-foss/cpky", rev = "65f93bb78d103d9ee3c25b80ed873130ecf2a6d7" }
+cmbr = { git = "https://github.com/corbet-libs/cmbr", rev = "bdd9211b7b75facd81f3df19383ae5daf856436d" }
+cgts = { git = "https://github.com/corbet-libs/cgts", rev = "b1200a82039260e0597a966dcd435aeee193484e" }
 chrono = { version = "0.4.45", default-features = false, features = ["std"] }
-cplc = { git = "https://github.com/corbet-libs/cplc", rev = "ddf068356fb5f9777f5827f359ea2400c72fce63" }
+cplc = { git = "https://github.com/corbet-libs/cplc", rev = "a9d328d37501b0604c4e0c21d32c9c6a5200da09" }
 tokio = { version = "1", features = ["sync", "time"] }
-crlt = { git = "https://github.com/corbet-foss/crlt", rev = "6b94dacd7fa04aa8847c62c6471a1fc5c0f6c9dc" }
-cpsd = { git = "https://github.com/corbet-foss/cpsd", rev = "b60f2bbff04dbe0a93cb41992006b06dafc798c3" }
-crbk = { git = "https://github.com/corbet-foss/crbk", rev = "fe70dc61262a80dd7681da853acfdad290f3910c" }
-csgn = { git = "https://github.com/corbet-foss/csgn", rev = "d7203f310c3c129c3f67ef4ef3e34ccf0ae8c93b", default-features = false }
+crlt = { git = "https://github.com/corbet-foss/crlt", rev = "80dc046d6ab53b3ea530c45bf3d7038c8b2c61b2" }
+cpsd = { git = "https://github.com/corbet-foss/cpsd", rev = "0d314b97bce9aeaffb5424159e8255ce34acee1e" }
+crbk = { git = "https://github.com/corbet-foss/crbk", rev = "954c17762df251c1354bd9303354d82b0a81e487" }
+csgn = { git = "https://github.com/corbet-foss/csgn", rev = "3ea958b522a15fecf65630aae1f9944135105497", default-features = false }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2"
 
 [dev-dependencies]
-cglb = { git = "https://github.com/corbet-libs/cglb", rev = "03d1d8d9437c4f9547e788130cfe83c2a33188ff" }
-cnrl = { git = "https://github.com/corbet-foss/cnrl", rev = "dd44fad14e36d2a43ce37cd6d76d323dc217a236" }
-cgrd = { git = "https://github.com/corbet-foss/cgrd", rev = "947969cd38166f75914aa09256a6d2523990e0e4" }
+cglb = { git = "https://github.com/corbet-libs/cglb", rev = "f6fc32ff2a0f5b71147df8fe277ca908d04e4ad7" }
+cnrl = { git = "https://github.com/corbet-foss/cnrl", rev = "bf807db153c5513870af873d6da2df832cd41f4d" }
+cgrd = { git = "https://github.com/corbet-foss/cgrd", rev = "ff83c2b3fe786feb9b8c5f459b828ea1db4e6449" }
 ed25519-dalek = "2.2"
 webauthn-authenticator-rs = { version = "0.5.5", default-features = false, features = ["softtoken"] }
 rand = { version = "0.8", features = ["std_rng"] }
-csgn = { git = "https://github.com/corbet-foss/csgn", rev = "d7203f310c3c129c3f67ef4ef3e34ccf0ae8c93b", features = ["signer"] }
+csgn = { git = "https://github.com/corbet-foss/csgn", rev = "3ea958b522a15fecf65630aae1f9944135105497", features = ["signer"] }
 tempfile = "3"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "sync", "time"] }
 

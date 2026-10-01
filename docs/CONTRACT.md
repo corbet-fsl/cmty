@@ -1,6 +1,6 @@
-# cmnt implemented contract
+# cmty implemented contract
 
-Community composition under `cvld → cmnt`, over cmbr, cgts and cplc. Native Rust,
+Community composition under `cvld → cmty`, over cmbr, cgts and cplc. Native Rust,
 FSL-1.1-ALv2, development API. No cryptography, policy evaluator, membership state
 machine, lifetime calculator, gate adapter or signing store is implemented here.
 
@@ -15,7 +15,7 @@ COSE signing; crlt owns database capabilities and indexed transactions.
 
 `Parts` contains the actual three facades. Configure cmbr and cplc with
 `community.admit`, one canonical community and one shared database. The optional
-`SharedRulebook` adapter shares an actual crbk store; cmnt never resolves it or
+`SharedRulebook` adapter shares an actual crbk store; cmty never resolves it or
 calls crbk's decision function. `PolicySnapshot` is a read-only UI view, not an
 admission capability. Caller-built snapshots, pseudonyms and raw gate metadata
 cannot substitute for verified admission inputs.
@@ -35,17 +35,17 @@ and pseudonym. No caller-supplied membership class exists. `finish_with` can run
 additional checks through the real cgts instance. Each receipt binds community,
 subject, action, exact settings content/publication, effective epoch and time.
 Global facts come only from cgts's verified passport witness. cgts checks legal
-state and combines fresh and retained facts; cmnt never manufactures gate results.
+state and combines fresh and retained facts; cmty never manufactures gate results.
 
 cplc validates the current verified settings and makes the decision. A negative
 explicit admission attempt delegates lapse to cmbr and returns `Missing`.
 A legal veto returns `Vetoed`; failures are errors. Merely calling the cmbr lobby
-or cmnt `snapshot` does not mutate membership or publish anything. On allowance,
+or cmty `snapshot` does not mutate membership or publish anything. On allowance,
 cmbr commits admission, and cplc issues while holding cmbr's per-member source
 lease. Pending, lapsed, released, legally restricted or unacknowledged-revocation
 members cannot obtain a credential even under a gate-free policy.
 
-The wire payload is `cplc::Credential`. cmnt verifies it through csgn and returns
+The wire payload is `cplc::Credential`. cmty verifies it through csgn and returns
 a `CredentialClaims` view. Global gates, global identifiers, proof times and
 passport bytes never enter this credential. Pin values and salts remain on the
 device; only context-bound v2 fingerprints enter permanent community storage.
@@ -96,7 +96,7 @@ it is not an independently fabricated gate-expiry assertion.
 Use one physical database per community and one `crlt::Db`. Append
 `cmbr::SCHEMAS` (including clbs), cgts, crbk, cplc, csgn and `storage::SCHEMA`
 exactly once to the complete migration history; reuse that history on reopen.
-cmnt adds no tables. Memory and libSQL challenge stores delegate to cpsd.
+cmty adds no tables. Memory and libSQL challenge stores delegate to cpsd.
 Challenges contain anonymous nonce/binding/deadline only. Index plans, namespaces,
 capacity, missing-schema failures and restart replay protection are tested.
 
@@ -109,7 +109,7 @@ admitted, but returns no credential. Retry with a fresh presentation. Cancellati
 cannot leave a cmbr writer permanently busy; unused anonymous challenges expire.
 
 No credentials, presentations, raw gates, personal identifiers, profile values,
-salts or request logs are persisted by cmnt. Do not enable request/body tracing.
+salts or request logs are persisted by cmty. Do not enable request/body tracing.
 Errors are redacted. The public global API exposes signed aggregate policy
 metadata, not global account records or uniqueness fingerprints.
 
@@ -141,3 +141,13 @@ Credential assembly includes seals only for fields whose current change preset
 is restricted. Loosening a field to Free does not prevent renewal; its previous
 stored seal is retained for a later tightening and omitted from the Free-field
 credential.
+
+## Additional devices
+
+`begin_additional_registration` and `finish_additional_registration` expose cmbr's
+session-authorized, UV-required passkey enrolment for the same membership. cmbr
+and cpky own its identity, lifecycle and atomic revocation checks. The door binds
+single-use state to its initiating session. A passkey ecosystem is a device;
+there is no manual key approval or recovery identity. Removing one passkey keeps
+access through the remaining keys; losing every key permanently releases the
+membership under NO RETURN.

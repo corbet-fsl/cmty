@@ -1,0 +1,11 @@
+# Audit the complete native and browser graph, including unused Dock dependencies.
+[advisories]
+# Exact advisories only; the reviewed versions and exposure are checked in CI.
+# See docs/DEPENDENCIES.md. The repaired transport has no advisory exceptions.
+ignore = [
+    { id = "RUSTSEC-2024-0388", reason = "Dock/arkworks uses derivative 2.2.0 at build time; no compatible maintained upstream replacement yet" },
+    { id = "RUSTSEC-2024-0436", reason = "Dock/arkworks uses paste 1.0.15 at build time; replacement requires upstream family upgrade" },
+    { id = "RUSTSEC-2026-0173", reason = "Wasmer 6.1.0 uses proc-macro-error2 2.0.1 at build time; unused runtime, tracked Dock feature-isolation task" },
+    { id = "RUSTSEC-2025-0055", reason = "ark-relations 0.4 uses tracing-subscriber 0.2 for constraint tracing; cpsd never installs a subscriber or logs requests" },
+]
+

@@ -1,7 +1,7 @@
 //! Full admission through real membership, gatekeeping, policy and libSQL.
 mod support;
 
-use cmnt::{storage::MemoryStorage, *};
+use cmty::{storage::MemoryStorage, *};
 use cnrl::State;
 use cpsd::rand::{SeedableRng, rngs::StdRng};
 use support::*;
@@ -1187,5 +1187,97 @@ async fn loosening_a_pinned_field_allows_renewal_and_preserves_later_tightening(
     assert_eq!(
         issued(f.issue().await).claims.pins["restricted-field"],
         f.fingerprint
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn another_passkey_preserves_admission_after_original_device_removal() {
+    use webauthn_authenticator_rs::{AuthenticatorBackend, softtoken::SoftToken};
+    let mut f = fixture(EXPIRY, EXPIRY).await;
+    let before = issued(f.issue().await);
+    let first_authentication = f.auth.authentication.clone();
+    let (options, pending) = f
+        .engine
+        .begin_additional_registration(&first_authentication)
+        .await
+        .unwrap();
+    let mut second = SoftToken::new(true).unwrap().0;
+    let response = second
+        .perform_register(
+            cpky::Url::parse(ORIGIN).unwrap(),
+            options.public_key,
+            300_000,
+        )
+        .unwrap();
+    let added = f
+        .engine
+        .finish_additional_registration(&first_authentication, pending, response)
+        .await
+        .unwrap();
+    assert_eq!(added.member(), USER);
+    let (options, pending) = f
+        .engine
+        .membership()
+        .begin_login(USER, added.credential_id().clone())
+        .await
+        .unwrap();
+    let response = second
+        .perform_auth(
+            cpky::Url::parse(ORIGIN).unwrap(),
+            options.public_key,
+            300_000,
+        )
+        .unwrap();
+    f.auth = f
+        .engine
+        .membership()
+        .finish_login(pending, response)
+        .await
+        .unwrap();
+    f.engine
+        .membership()
+        .revoke_passkey(
+            &f.auth.authentication,
+            first_authentication.credential_id().clone(),
+        )
+        .await
+        .unwrap();
+    f.engine.flush_revocations(NOW).await.unwrap();
+    assert!(
+        f.engine
+            .begin_additional_registration(&first_authentication)
+            .await
+            .is_err()
+    );
+    assert!(
+        f.engine
+            .membership()
+            .resume(&first_authentication)
+            .await
+            .is_err()
+    );
+    let after = issued(f.issue().await);
+    assert_eq!(after.claims.member_id, before.claims.member_id);
+    assert_eq!(after.claims.handle, before.claims.handle);
+    assert_eq!(after.claims.pins, before.claims.pins);
+    assert_eq!(
+        f.engine
+            .membership()
+            .resume(&f.auth.authentication)
+            .await
+            .unwrap()
+            .state(),
+        State::Admitted
+    );
+    f.engine
+        .membership()
+        .revoke_passkey(&f.auth.authentication, added.credential_id().clone())
+        .await
+        .unwrap();
+    assert!(
+        f.engine
+            .begin_additional_registration(&f.auth.authentication)
+            .await
+            .is_err()
     );
 }

@@ -1,6 +1,6 @@
 //! Shared leaf handles used to compose the three community facades.
 
-/// Cloneable handle to one actual rulebook store. Give clones to cplc and cmnt
+/// Cloneable handle to one actual rulebook store. Give clones to cplc and cmty
 /// so snapshots and decisions use the same revisions, including in memory.
 pub struct SharedRulebook<R>(std::sync::Arc<R>);
 
