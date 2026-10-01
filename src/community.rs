@@ -120,6 +120,7 @@ where
         let name = community_text(&community)?;
         if parts.policy.key_ring().map_err(|_| Error::Policy)?.issuer() != name
             || parts.membership.community() != name
+            || parts.gates.community() != name
         {
             return Err(Error::Scope);
         }

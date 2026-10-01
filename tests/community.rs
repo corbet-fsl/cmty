@@ -1,6 +1,8 @@
 //! Full admission through real membership, gatekeeping, policy and libSQL.
 #[path = "cases/boundaries.rs"]
 mod boundaries;
+#[path = "cases/consumption_race.rs"]
+mod consumption_race;
 mod support;
 
 use cmty::{storage::MemoryStorage, *};

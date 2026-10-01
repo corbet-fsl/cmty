@@ -11,7 +11,7 @@ async fn construction_refuses_inconsistent_authenticated_configuration() {
         vec![cpsd::GateId::new("global-test").unwrap()],
     )
     .unwrap();
-    for case in 0..10 {
+    for case in 0..13 {
         let directory = tempfile::tempdir().unwrap();
         let db = open(
             &format!("file://{}", directory.path().join("community.db").display()),
@@ -80,6 +80,15 @@ async fn construction_refuses_inconsistent_authenticated_configuration() {
                 Error::Scope
             }
             9 => Error::Scope,
+            10 => {
+                configuration.valid_until = cpsd::TIME_LIMIT;
+                Error::Policy
+            }
+            11 => {
+                configuration.passport.valid_until = cpsd::TIME_LIMIT.div_ceil(86_400) * 86_400;
+                Error::Policy
+            }
+            12 => Error::Scope,
             _ => unreachable!(),
         };
         let result: Result<Engine<MemoryStorage>> = Community::new(
@@ -87,15 +96,22 @@ async fn construction_refuses_inconsistent_authenticated_configuration() {
             keys,
             Parts {
                 membership,
-                gates: gates(&db),
+                gates: gates_in(&db, if case == 12 { "foreign" } else { "example" }),
                 policy,
             },
             configuration,
         );
-        assert!(
-            matches!(result, Err(error) if error == expected),
-            "case {case}"
-        );
+        if (10..=11).contains(&case) {
+            assert!(matches!(
+                result.unwrap().snapshot(NOW).await,
+                Err(Error::Policy)
+            ));
+        } else {
+            assert!(
+                matches!(result, Err(error) if error == expected),
+                "case {case}"
+            );
+        }
     }
 }
 
@@ -264,4 +280,203 @@ async fn revocation_publication_write_failure_keeps_the_membership_outbox_pendin
     let document: serde_json::Value = serde_json::from_str(rows[0].get_str(0).unwrap()).unwrap();
     assert!(document["publications"]["settings"].is_object());
     assert!(document["publications"]["revocation_list"].is_null());
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_fenced_real_signer_cannot_return_a_new_presentation_request() {
+    let mut f = fixture(EXPIRY, EXPIRY).await;
+    let _competing = csgn::PersistentSigner::open(
+        csgn::LibsqlStore::new(f.db.community("example").unwrap()),
+        "example",
+        csgn::SecretKey::from_seed(&mut [1; 32]),
+        NOW,
+    )
+    .await
+    .unwrap();
+    assert!(matches!(
+        f.engine.begin(&mut f.rng, NOW).await,
+        Err(Error::Signing)
+    ));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn actual_owner_storage_failures_refuse_admission_and_consume_the_proof() {
+    for (sql, expected) in [
+        ("DROP TABLE cnrl_enrolments", Error::Membership),
+        ("DROP TABLE cgts_results", Error::Gate),
+        ("DROP TABLE cpns_pins", Error::Membership),
+        (
+            "ALTER TABLE cplc_policy ADD COLUMN settings_guard INTEGER NOT NULL DEFAULT 0
+             CHECK (json_extract(document, '$.publications.settings') IS NULL)",
+            Error::Policy,
+        ),
+    ] {
+        let mut f = fixture(EXPIRY, EXPIRY).await;
+        let (challenge, proof) = f.proof().await;
+        let mut history = migrations();
+        history.push(crlt::Migration::new(
+            history.len() as u32 + 1,
+            "interrupt-admission-storage",
+            sql,
+        ));
+        f.db.migrate(&history).await.unwrap();
+        assert!(matches!(
+            f.finish(&challenge, &proof, NOW).await,
+            Err(error) if error == expected
+        ));
+        // Read the original nonce store through its real owner. A failed later
+        // membership/publication operation must not make the proof reusable.
+        let store = storage::LibsqlStorage::new(&f.db, scope(), 32).unwrap();
+        let verifier = cpsd::Verifier::new(
+            storage::Storage::challenges(&store),
+            vec![f.passport.issuer().clone()],
+        )
+        .unwrap();
+        assert!(
+            verifier
+                .verify(&mut f.rng, challenge.request(), &proof, 7, NOW)
+                .await
+                .is_err()
+        );
+    }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn foreign_real_challenges_passports_and_passkey_sessions_cannot_cross_the_boundary() {
+    use webauthn_authenticator_rs::{AuthenticatorBackend, softtoken::SoftToken};
+    let mut f = fixture(EXPIRY, EXPIRY).await;
+    let directory = tempfile::tempdir().unwrap();
+    let db = open(
+        &format!("file://{}", directory.path().join("foreign.db").display()),
+        "",
+    )
+    .await;
+    let (policy, _) = policies_in(&db, rulebook(), "foreign").await;
+    let foreign: Engine<MemoryStorage> = Community::new(
+        MemoryStorage::new(cpsd::CommunityId::new("foreign").unwrap(), 8).unwrap(),
+        vec![f.passport.issuer().clone()],
+        Parts {
+            membership: members_in(&db, f.clock.clone(), "foreign"),
+            gates: gates_in(&db, "foreign"),
+            policy,
+        },
+        config(EXPIRY, EXPIRY),
+    )
+    .unwrap();
+    let challenge = foreign.begin(&mut f.rng, NOW).await.unwrap();
+    let proof = present(&foreign, &f.passport, &mut f.rng, &challenge, NOW).await;
+    assert!(matches!(
+        f.engine.verify(&mut f.rng, &challenge, &proof, NOW).await,
+        Err(Error::Passport)
+    ));
+    let verified = foreign
+        .verify(&mut f.rng, &challenge, &proof, NOW)
+        .await
+        .unwrap();
+    assert!(matches!(
+        f.engine.begin_registration(verified, USER, NOW).await,
+        Err(Error::Passport)
+    ));
+
+    let challenge = foreign.begin(&mut f.rng, NOW).await.unwrap();
+    let proof = present(&foreign, &f.passport, &mut f.rng, &challenge, NOW).await;
+    let verified = foreign
+        .verify(&mut f.rng, &challenge, &proof, NOW)
+        .await
+        .unwrap();
+    let (request, pending) = foreign
+        .begin_registration(verified, USER, NOW)
+        .await
+        .unwrap();
+    let mut device = SoftToken::new(true).unwrap().0;
+    let mut options = request.public_key;
+    // The same explicitly non-resident software authenticator as the owner fixture.
+    options
+        .authenticator_selection
+        .as_mut()
+        .unwrap()
+        .require_resident_key = false;
+    let response = device
+        .perform_register(ckyh::Url::parse(ORIGIN).unwrap(), options, 300_000)
+        .unwrap();
+    let credential: ckyh::CredentialID = response.raw_id.clone().into();
+    foreign
+        .membership()
+        .finish_registration(pending, response.into())
+        .await
+        .unwrap();
+    let (request, pending) = foreign
+        .membership()
+        .begin_login(USER, credential)
+        .await
+        .unwrap();
+    let response = device
+        .perform_auth(
+            ckyh::Url::parse(ORIGIN).unwrap(),
+            request.public_key,
+            300_000,
+        )
+        .unwrap();
+    let login = foreign
+        .membership()
+        .finish_login(pending, response.into())
+        .await
+        .unwrap();
+    assert!(matches!(
+        f.engine
+            .begin_additional_registration(&login.authentication)
+            .await,
+        Err(Error::Scope)
+    ));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_real_legal_order_during_gate_work_vetoes_before_any_credential_escapes() {
+    for before_provider in [true, false] {
+        let mut f = fixture(EXPIRY, EXPIRY).await;
+        let (challenge, proof) = f.proof().await;
+        let db = f.db.clone();
+        let clock = f.clock.clone();
+        let subject = f.passport.pseudonym(&scope()).to_hex();
+        let outcome = f
+            .engine
+            .finish_with(
+                &mut f.rng,
+                &challenge,
+                &proof,
+                Admission {
+                    authentication: &f.auth.authentication,
+                    devices: &f.devices,
+                    lease: crgs::YearMonth::new(2027, 9).unwrap(),
+                },
+                NOW,
+                async |gates, context| {
+                    if before_provider {
+                        record_ban(&db, clock.clone(), &subject).await;
+                    }
+                    let receipt = gates
+                        .run(
+                            context,
+                            &DevelopmentGate {
+                                until: EXPIRY as i64,
+                                transient: true,
+                                fail: false,
+                            },
+                            &(),
+                        )
+                        .await?;
+                    if !before_provider {
+                        record_ban(&db, clock.clone(), &subject).await;
+                    }
+                    Ok(vec![receipt])
+                },
+            )
+            .await
+            .unwrap();
+        assert!(matches!(outcome, Outcome::Vetoed));
+        assert!(matches!(
+            f.engine.membership().resume(&f.auth.authentication).await,
+            Err(cmbr::Error::Restricted)
+        ));
+    }
 }
