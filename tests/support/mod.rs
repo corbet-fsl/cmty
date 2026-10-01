@@ -376,14 +376,23 @@ pub async fn fixture_with_identity<S: Storage>(
     let response = device
         .perform_register(
             cpky::Url::parse(ORIGIN).unwrap(),
-            request.public_key,
+            {
+                // SoftToken is a legacy non-resident fixture.
+                let mut options = request.public_key;
+                options
+                    .authenticator_selection
+                    .as_mut()
+                    .unwrap()
+                    .require_resident_key = false;
+                options
+            },
             300_000,
         )
         .unwrap();
     let credential_id: cpky::CredentialID = response.raw_id.clone().into();
     engine
         .membership()
-        .finish_registration(pending, response)
+        .finish_registration(pending, response.into())
         .await
         .unwrap();
     let (request, pending) = engine
@@ -400,7 +409,7 @@ pub async fn fixture_with_identity<S: Storage>(
         .unwrap();
     let auth = engine
         .membership()
-        .finish_login(pending, response)
+        .finish_login(pending, response.into())
         .await
         .unwrap();
     engine

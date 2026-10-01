@@ -929,7 +929,7 @@ dependencies = [
 [[package]]
 name = "cmbr"
 version = "0.0.0"
-source = "git+https://github.com/corbet-libs/cmbr?rev=bdd9211b7b75facd81f3df19383ae5daf856436d#bdd9211b7b75facd81f3df19383ae5daf856436d"
+source = "git+https://github.com/corbet-libs/cmbr?rev=8612cf4b49b6e1a061c361fb3e8cbc050858592d#8612cf4b49b6e1a061c361fb3e8cbc050858592d"
 dependencies = [
  "cgrd",
  "cgts",
@@ -986,7 +986,7 @@ checksum = "0c9ea0ac24bc397ab3c98583a3c9ba74fa56b09a4449bbe172b9b1ddb016027a"
 [[package]]
 name = "cnrl"
 version = "0.0.0"
-source = "git+https://github.com/corbet-foss/cnrl?rev=bf807db153c5513870af873d6da2df832cd41f4d#bf807db153c5513870af873d6da2df832cd41f4d"
+source = "git+https://github.com/corbet-foss/cnrl?rev=11dd4b47f683b7de93951ad07a54e95e5b30ff9f#11dd4b47f683b7de93951ad07a54e95e5b30ff9f"
 dependencies = [
  "chrono",
  "clbs",
@@ -1094,10 +1094,11 @@ dependencies = [
 [[package]]
 name = "cpky"
 version = "0.0.0"
-source = "git+https://github.com/corbet-foss/cpky?rev=65f93bb78d103d9ee3c25b80ed873130ecf2a6d7#65f93bb78d103d9ee3c25b80ed873130ecf2a6d7"
+source = "git+https://github.com/corbet-foss/cpky?rev=5883d21b27d0cc5287d50e983505c91008b3b927#5883d21b27d0cc5287d50e983505c91008b3b927"
 dependencies = [
  "crlt",
  "serde",
+ "serde_json",
  "serde_cbor_2",
  "tokio",
  "tracing",

@@ -1205,13 +1205,22 @@ async fn another_passkey_preserves_admission_after_original_device_removal() {
     let response = second
         .perform_register(
             cpky::Url::parse(ORIGIN).unwrap(),
-            options.public_key,
+            {
+                // SoftToken is a legacy non-resident fixture.
+                let mut options = options.public_key;
+                options
+                    .authenticator_selection
+                    .as_mut()
+                    .unwrap()
+                    .require_resident_key = false;
+                options
+            },
             300_000,
         )
         .unwrap();
     let added = f
         .engine
-        .finish_additional_registration(&first_authentication, pending, response)
+        .finish_additional_registration(&first_authentication, pending, response.into())
         .await
         .unwrap();
     assert_eq!(added.member(), USER);
@@ -1231,7 +1240,7 @@ async fn another_passkey_preserves_admission_after_original_device_removal() {
     f.auth = f
         .engine
         .membership()
-        .finish_login(pending, response)
+        .finish_login(pending, response.into())
         .await
         .unwrap();
     f.engine
