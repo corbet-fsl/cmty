@@ -19,7 +19,11 @@ pub const NOW: u64 = 1_800_000_000 / 86_400 * 86_400;
 pub const EXPIRY: u64 = NOW + 90 * 86_400;
 pub const USER: ckyh::Uuid = ckyh::Uuid::from_u128(1);
 pub const ORIGIN: &str = "https://members.example.org";
-pub const DEVICES: [[u8; 32]; 1] = [[13; 32]];
+// Ed25519 public key of the fixture seed [13; 32], checked at setup below.
+pub const DEVICES: [[u8; 32]; 1] = [[
+    145, 162, 138, 11, 116, 56, 21, 147, 164, 217, 70, 149, 121, 32, 137, 38,
+    175, 200, 173, 130, 200, 131, 155, 118, 68, 53, 155, 158, 186, 154, 75, 58,
+]];
 
 pub fn scope() -> CommunityId {
     CommunityId::new("example").unwrap()
@@ -121,6 +125,7 @@ pub async fn open(url: &str, token: &str) -> crlt::Db {
         ("cplc", cplc::SCHEMA),
         ("csgn", csgn::SCHEMA),
         ("cpsd", storage::SCHEMA),
+        ("cmbr-device-keys", cmbr::DEVICE_KEYS_SCHEMA),
     ]);
     let migrations: Vec<_> = schemas
         .iter()
@@ -412,6 +417,8 @@ pub async fn fixture_with_identity<S: Storage>(
         .finish_login(pending, response.into())
         .await
         .unwrap();
+    assert_eq!(DEVICES[0], SigningKey::from_bytes(&[13; 32]).verifying_key().to_bytes());
+    engine.membership().authorize_device_key(&auth.authentication, DEVICES[0]).await.unwrap();
     engine
         .membership()
         .reserve_handle(&auth.authentication, "test_member", &[])

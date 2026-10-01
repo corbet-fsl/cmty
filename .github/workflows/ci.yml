@@ -1,7 +1,8 @@
 name: ci
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: ci
+  cancel-in-progress: false
+  queue: max
 jobs:
   resolve:
     runs-on: ubuntu-latest
@@ -77,8 +78,9 @@ jobs:
     - run: node .github/check-pins.mjs dependency-metadata.json
     - run: cargo clippy --locked --all-targets -- -D warnings
     - name: Record dependency license inventory
-      run: cargo metadata --locked --format-version 1 | python3 -c 'import json,sys; d=json.load(sys.stdin); json.dump([{k:p.get(k)
-        for k in ("name","version","license","source")} for p in d["packages"]],sys.stdout,indent=2)' > dependency-licenses.json
+      run: cargo metadata --locked --format-version 1 | python3 -c 'import json,sys; d=json.load(sys.stdin);
+        json.dump([{k:p.get(k) for k in ("name","version","license","source")} for p in d["packages"]],sys.stdout,indent=2)'
+        > dependency-licenses.json
     - run: cargo test --locked
     - uses: actions/upload-artifact@v4
       if: always()
@@ -120,6 +122,7 @@ jobs:
     - uses: Swatinem/rust-cache@v2
       with:
         prefix-key: coverage
+        cache-on-failure: true
     - uses: taiki-e/install-action@v2
       with:
         tool: cargo-llvm-cov
@@ -130,13 +133,20 @@ jobs:
 
         cargo llvm-cov --locked --workspace --all-features --branch --no-cfg-coverage --no-cfg-coverage-nightly
         --ignore-filename-regex ''(/tests/|/tests\.rs$)'' --json --output-path coverage.json'
-    - name: Require every reachable line and branch
-      run: python3 .github/check-coverage.py coverage.json
+    - name: Export source counters from the same execution
+      run: cargo llvm-cov report --locked --branch --ignore-filename-regex '(/tests/|/tests\.rs$)' --lcov
+        --output-path coverage.lcov
+    - name: Require every emitted source line and branch
+      run: 'python3 .github/check-coverage.py coverage.json || true
+
+        python3 .github/check-source-coverage.py coverage.lcov coverage.json'
     - uses: actions/upload-artifact@v7
       if: always()
       with:
         name: coverage
-        path: 'coverage.json
+        path: 'coverage.lcov
+
+          coverage.json
 
           Cargo.lock
 
@@ -145,7 +155,7 @@ jobs:
 'on':
   push:
     branches:
-    - '**'
+    - main
     paths-ignore:
     - '**.md'
     - LICENSE

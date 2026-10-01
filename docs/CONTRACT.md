@@ -87,8 +87,12 @@ serializes updates with local signing. Changed global metadata invalidates old
 challenges; fresh challenges reject old-epoch passports. A suspended person
 cannot get a replacement global passport, so community renewal fails closed.
 The global service never needs a community membership list. Issuer key updates,
-canonical routing, configuration freshness and device-key authorization remain
-service responsibilities. Configuration expiry prevents new challenges/issuance;
+canonical routing and configuration freshness remain service responsibilities.
+cmbr supplies the current passkey-bound device keys under the membership lease;
+cplc refuses requested keys outside that independently read set. Bind a key with
+`Membership::authorize_device_key` after real passkey authentication, then drain
+revocations before asking for issuance. Supplying `devices` in a credential
+request cannot create that binding. Configuration expiry prevents new challenges/issuance;
 it is not an independently fabricated gate-expiry assertion.
 
 ## Storage, concurrency and recovery
@@ -96,6 +100,8 @@ it is not an independently fabricated gate-expiry assertion.
 Use one physical database per community and one `crlt::Db`. Append
 `cmbr::SCHEMAS` (including clbs), cgts, crbk, cplc, csgn and `storage::SCHEMA`
 exactly once to the complete migration history; reuse that history on reopen.
+Append `cmbr::DEVICE_KEYS_SCHEMA` after that complete historical sequence; never
+insert it into an already deployed sequence or renumber prior migrations.
 cmty adds no tables. Memory and libSQL challenge stores delegate to cpsd.
 Challenges contain anonymous nonce/binding/deadline only. Index plans, namespaces,
 capacity, missing-schema failures and restart replay protection are tested.
