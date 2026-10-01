@@ -1204,7 +1204,7 @@ async fn another_passkey_preserves_admission_after_original_device_removal() {
     let mut second = SoftToken::new(true).unwrap().0;
     let response = second
         .perform_register(
-            cpky::Url::parse(ORIGIN).unwrap(),
+            ckyh::Url::parse(ORIGIN).unwrap(),
             {
                 // SoftToken is a legacy non-resident fixture.
                 let mut options = options.public_key;
@@ -1232,7 +1232,7 @@ async fn another_passkey_preserves_admission_after_original_device_removal() {
         .unwrap();
     let response = second
         .perform_auth(
-            cpky::Url::parse(ORIGIN).unwrap(),
+            ckyh::Url::parse(ORIGIN).unwrap(),
             options.public_key,
             300_000,
         )

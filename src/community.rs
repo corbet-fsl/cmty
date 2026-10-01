@@ -75,8 +75,8 @@ pub struct Parts<M, L, C, G, A, R, P, K> {
 /// authentication and its pseudonym binding. The service authorizes device keys.
 /// cmbr owns standing. Never deserialize this input.
 pub struct Admission<'a> {
-    /// A committed cpky login for the enrolled community-local user.
-    pub authentication: &'a cpky::Authentication,
+    /// A committed ckyh login for the enrolled community-local user.
+    pub authentication: &'a ckyh::Authentication,
     /// Public device keys authorized by the service's device protocol.
     pub devices: &'a [[u8; 32]],
     /// Coarse lease end from the service's retention policy, not credential expiry.
@@ -249,9 +249,9 @@ where
     pub async fn begin_registration(
         &self,
         passport: VerifiedPassport,
-        user: cpky::Uuid,
+        user: ckyh::Uuid,
         now: u64,
-    ) -> Result<(cpky::CreationChallengeResponse, cmbr::PendingRegistration)> {
+    ) -> Result<(ckyh::CreationChallengeResponse, cmbr::PendingRegistration)> {
         if passport.community != self.community || passport.verified_at != now {
             return Err(Error::Passport);
         }
@@ -268,9 +268,9 @@ where
     /// The door owns session lifetime and keeps the pending state in that session.
     pub async fn begin_additional_registration(
         &self,
-        authentication: &cpky::Authentication,
+        authentication: &ckyh::Authentication,
     ) -> Result<(
-        cpky::CreationChallengeResponse,
+        ckyh::CreationChallengeResponse,
         cmbr::PendingAdditionalRegistration,
     )> {
         self.membership
@@ -282,10 +282,10 @@ where
     /// Complete the same membership's UV-required additional-passkey ceremony.
     pub async fn finish_additional_registration(
         &self,
-        authentication: &cpky::Authentication,
+        authentication: &ckyh::Authentication,
         state: cmbr::PendingAdditionalRegistration,
-        response: cpky::RegisterPublicKeyCredential,
-    ) -> Result<cpky::StoredPasskey> {
+        response: ckyh::RegisterPublicKeyCredential,
+    ) -> Result<ckyh::StoredPasskey> {
         self.membership
             .finish_additional_registration(authentication, state, response)
             .await

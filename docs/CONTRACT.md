@@ -29,7 +29,7 @@ consumes that witness at the same trusted time and starts cmbr's WebAuthn flow.
 The community-local UUID is service-generated; the member identity is the real
 community pseudonym. Registration alone grants no access.
 
-`finish` requires a fresh proof plus a real cpky authentication, authorized public
+`finish` requires a fresh proof plus a real ckyh authentication, authorized public
 device keys and a coarse lease. It checks the authentication's current passkey
 and pseudonym. No caller-supplied membership class exists. `finish_with` can run
 additional checks through the real cgts instance. Each receipt binds community,
@@ -146,7 +146,7 @@ credential.
 
 `begin_additional_registration` and `finish_additional_registration` expose cmbr's
 session-authorized, UV-required passkey enrolment for the same membership. cmbr
-and cpky own its identity, lifecycle and atomic revocation checks. The door binds
+and ckyh own its identity, lifecycle and atomic revocation checks. The door binds
 single-use state to its initiating session. A passkey ecosystem is a device;
 there is no manual key approval or recovery identity. Removing one passkey keeps
 access through the remaining keys; losing every key permanently releases the

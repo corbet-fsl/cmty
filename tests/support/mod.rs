@@ -17,7 +17,7 @@ use webauthn_authenticator_rs::{AuthenticatorBackend, softtoken::SoftToken};
 
 pub const NOW: u64 = 1_800_000_000 / 86_400 * 86_400;
 pub const EXPIRY: u64 = NOW + 90 * 86_400;
-pub const USER: cpky::Uuid = cpky::Uuid::from_u128(1);
+pub const USER: ckyh::Uuid = ckyh::Uuid::from_u128(1);
 pub const ORIGIN: &str = "https://members.example.org";
 pub const DEVICES: [[u8; 32]; 1] = [[13; 32]];
 
@@ -105,7 +105,7 @@ pub struct Fixture<S: Storage> {
     pub db: crlt::Db,
     pub auth: cmbr::Login,
     pub clock: Clock,
-    pub credential_id: cpky::CredentialID,
+    pub credential_id: ckyh::CredentialID,
     pub rules: crbk::Rulebook,
     pub fingerprint: [u8; 32],
     pub config_until: u64,
@@ -142,7 +142,7 @@ pub fn members(db: &crlt::Db, clock: Clock) -> Members {
             membership_action: ADMISSION_ACTION.into(),
             release_period: crgs::ReleasePeriod::default(),
             rp_id: "members.example.org".into(),
-            origins: vec![cpky::Url::parse(ORIGIN).unwrap()],
+            origins: vec![ckyh::Url::parse(ORIGIN).unwrap()],
         },
         Authority,
         clock,
@@ -375,7 +375,7 @@ pub async fn fixture_with_identity<S: Storage>(
     let mut device = SoftToken::new(true).unwrap().0;
     let response = device
         .perform_register(
-            cpky::Url::parse(ORIGIN).unwrap(),
+            ckyh::Url::parse(ORIGIN).unwrap(),
             {
                 // SoftToken is a legacy non-resident fixture.
                 let mut options = request.public_key;
@@ -389,7 +389,7 @@ pub async fn fixture_with_identity<S: Storage>(
             300_000,
         )
         .unwrap();
-    let credential_id: cpky::CredentialID = response.raw_id.clone().into();
+    let credential_id: ckyh::CredentialID = response.raw_id.clone().into();
     engine
         .membership()
         .finish_registration(pending, response.into())
@@ -402,7 +402,7 @@ pub async fn fixture_with_identity<S: Storage>(
         .unwrap();
     let response = device
         .perform_auth(
-            cpky::Url::parse(ORIGIN).unwrap(),
+            ckyh::Url::parse(ORIGIN).unwrap(),
             request.public_key,
             300_000,
         )
