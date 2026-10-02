@@ -59,6 +59,35 @@ async fn real_passport_passkey_enrolment_gates_policy_pins_and_cose_roundtrip() 
         result.claims.payload().unwrap()
     );
     assert_eq!(result.claims.policy_epoch, snapshot.rules.policy_epoch);
+    let binding = snapshot
+        .signing_keys
+        .verify(&result.passkey_binding, csgn::Kind::Credential, NOW)
+        .unwrap();
+    let binding_payload: cplc::PasskeyBinding = serde_json::from_slice(binding.payload()).unwrap();
+    assert_eq!(binding_payload.community, result.claims.community);
+    assert_eq!(binding_payload.member, result.claims.member_id);
+    assert_eq!(binding_payload.policy_epoch, result.claims.policy_epoch);
+    assert_eq!(
+        binding_payload.credential.member(),
+        f.auth.authentication.member().as_bytes()
+    );
+    assert_eq!(
+        binding_payload.credential.credential_id(),
+        f.auth.authentication.credential_id().as_ref()
+    );
+    assert!(!binding_payload.credential.spki().is_empty());
+    assert_eq!(binding.valid_until(), result.claims.valid_until);
+    assert!(serde_json::from_slice::<cplc::Credential>(binding.payload()).is_err());
+    assert!(
+        snapshot
+            .signing_keys
+            .verify(
+                &result.passkey_binding,
+                csgn::Kind::Credential,
+                binding.valid_until()
+            )
+            .is_err()
+    );
     assert!(
         snapshot
             .signing_keys

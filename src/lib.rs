@@ -9,7 +9,11 @@ mod community;
 pub mod storage;
 mod types;
 
-pub use community::{Admission, Challenge, Community, Config, Parts, VerifiedPassport};
+/// Canonical account protocol, owned by Balance below Gatekeeping.
+pub use cgts::{AccountServiceRequest, AccountServiceResponse};
+pub use community::{
+    AccountAdmission, Admission, Challenge, Community, Config, Parts, VerifiedPassport,
+};
 pub use types::*;
 /// Exact protocol types of the composed facades.
 pub use {cgts, cmbr, cplc};
@@ -41,6 +45,12 @@ pub enum Error {
     /// Signing failed or returned inconsistent authenticated claims.
     #[error("credential signing failed")]
     Signing,
+    /// A dispatched account operation failed; reconcile its original request.
+    #[error("account outcome unknown; reconcile before another operation")]
+    Reconcile,
+    /// No Balance service is configured for this community.
+    #[error("account service unavailable")]
+    AccountUnavailable,
 }
 
 impl From<cpsd::Error> for Error {

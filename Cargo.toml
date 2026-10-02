@@ -26,6 +26,8 @@ crbk = { git = "https://github.com/corbet-foss/crbk", branch = "main" }
 csgn = { git = "https://github.com/corbet-foss/csgn", branch = "main", default-features = false }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+data-encoding = "2.9"
+sha2 = "0.10"
 thiserror = "2"
 
 [dev-dependencies]
@@ -35,7 +37,7 @@ cgrd = { git = "https://github.com/corbet-foss/cgrd", branch = "main" }
 ed25519-dalek = "2.2"
 webauthn-authenticator-rs = { version = "0.5.5", default-features = false, features = ["softtoken"] }
 rand = { version = "0.8", features = ["std_rng"] }
-csgn = { git = "https://github.com/corbet-foss/csgn", branch = "main", features = ["signer"] }
+csgn = { git = "https://github.com/corbet-foss/csgn", branch = "main", features = ["signer", "volatile-signer"] }
 tempfile = "3"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "sync", "time"] }
 

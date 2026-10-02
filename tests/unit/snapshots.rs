@@ -1,6 +1,30 @@
 use super::*;
 use crbk::Storage;
 
+#[test]
+fn passport_digest_binds_all_cohort_fields_with_a_stable_encoding() {
+    let original = PassportPolicy {
+        epoch: 7,
+        valid_until: 1_800_144_000,
+        gates: [GateId::new("phone").unwrap(), GateId::new("email").unwrap()].into(),
+    };
+    assert_eq!(
+        data_encoding::HEXLOWER.encode(&original.digest()),
+        "31bedebf8d2984758890d085e400481062a3ec94bf5bb9417d1b835bcd62d602"
+    );
+    let mut changed = original.clone();
+    changed.epoch += 1;
+    assert_ne!(original.digest(), changed.digest());
+    changed = original.clone();
+    changed.valid_until += 86_400;
+    assert_ne!(original.digest(), changed.digest());
+    changed = original.clone();
+    changed.gates.remove(&GateId::new("email").unwrap());
+    assert_ne!(original.digest(), changed.digest());
+    changed.gates = [GateId::new("emailphone").unwrap()].into();
+    assert_ne!(original.digest(), changed.digest());
+}
+
 async fn snapshot(seed: u8) -> PolicySnapshot {
     let now = 1_800_000_000;
     let rules = crbk::MemoryStore::default()

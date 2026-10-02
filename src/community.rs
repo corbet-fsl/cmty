@@ -83,6 +83,15 @@ pub struct Admission<'a> {
     pub lease: crgs::YearMonth,
 }
 
+/// Admission requesting Policy's original account grant for one already
+/// authorized device. Global cohort metadata always comes from Community.
+pub struct AccountAdmission<'a> {
+    /// The same authenticated membership and gate inputs as normal admission.
+    pub membership: Admission<'a>,
+    /// One current device key; Policy refuses keys outside member authority.
+    pub device: [u8; 32],
+}
+
 /// Community composition over cmbr, cgts and cplc. There is no local member
 /// store, gate engine, policy evaluator, lifetime calculator or signer.
 pub struct Community<S: Storage, M, L, C, G, A, R, P, K> {
@@ -90,7 +99,7 @@ pub struct Community<S: Storage, M, L, C, G, A, R, P, K> {
     verifier: Verifier<S::Challenges>,
     membership: cmbr::Membership<M, L, C>,
     gates: cgts::Gatekeeper<G, A>,
-    policy: Mutex<cplc::Policy<R, P, K>>,
+    policy: std::sync::Arc<Mutex<cplc::Policy<R, P, K>>>,
     config: std::sync::RwLock<Config>,
 }
 
@@ -138,7 +147,7 @@ where
             verifier: Verifier::new(store, issuer_keys)?,
             membership: parts.membership,
             gates: parts.gates,
-            policy: Mutex::new(parts.policy),
+            policy: std::sync::Arc::new(Mutex::new(parts.policy)),
             config: std::sync::RwLock::new(config),
         })
     }
@@ -156,6 +165,112 @@ where
     /// Gate execution, headless steps and provider withdrawal remain with cgts.
     pub fn gates(&self) -> &cgts::Gatekeeper<G, A> {
         &self.gates
+    }
+
+    /// Bind the original community Balance service through Gatekeeping.
+    /// Construct its native store outside the async executor and supply a live
+    /// service clock, never a frozen request timestamp.
+    pub async fn with_account_service<V, Clock>(
+        mut self,
+        service: cgts::cblc::accounting_service::AccountService<V, Clock>,
+    ) -> Result<Self>
+    where
+        V: cgts::cblc::accounting::AccountProofVerifier + Send + 'static,
+        Clock: Fn() -> u64 + Send + 'static,
+    {
+        self.gates =
+            self.gates
+                .with_account_service(service)
+                .await
+                .map_err(|error| match error {
+                    cgts::Error::Scope => Error::Scope,
+                    cgts::Error::Storage => Error::Storage,
+                    _ => Error::Gate,
+                })?;
+        Ok(self)
+    }
+
+    /// Forward to the one configured Gatekeeping account service using current
+    /// member authority, independently of every identity in the request body.
+    /// The Balance service retains the live clock used during proof verification.
+    pub async fn account(
+        &self,
+        auth: &ckyh::Authentication,
+        request: AccountServiceRequest,
+        now: u64,
+    ) -> Result<AccountServiceResponse>
+    where
+        R: Send + 'static,
+        P: Send + 'static,
+        K: Send + 'static,
+    {
+        check_time(now)?;
+        self.flush_revocations(now).await?;
+        let mut policy = self.policy.clone().lock_owned().await;
+        let configuration = self.snapshot_locked(&policy, now).await?;
+        let snapshot = policy
+            .verified_settings(now)
+            .await
+            .map_err(|_| Error::Policy)?;
+        let row = self.membership.resume(auth).await.map_err(member_error)?;
+        let (facts, lease) =
+            cplc::MembershipSource::membership(&self.membership, row.subject(), now)
+                .await
+                .map_err(|_| Error::Membership)?;
+        // Revalidate the exact passkey after acquiring the member queue. This
+        // read does not acquire a second lease or manufacture a credential.
+        let current = self.membership.resume(auth).await.map_err(member_error)?;
+        if current.subject() != facts.member
+            || facts.community != community_text(&self.community)?
+            || facts.state != crbk::MembershipState::Admitted
+            || facts.lease_end <= now
+        {
+            return Err(Error::Membership);
+        }
+        let bytes = data_encoding::HEXLOWER
+            .decode(current.subject().as_bytes())
+            .map_err(|_| Error::Membership)?;
+        let pseudonym = cpsd::Pseudonym::from_bytes(&bytes).map_err(|_| Error::Membership)?;
+        let grant = match &request {
+            AccountServiceRequest::Apply { grant, .. }
+            | AccountServiceRequest::ApplyExtended { grant, .. }
+            | AccountServiceRequest::Obligations { grant, .. }
+            | AccountServiceRequest::Status { grant, .. } => grant,
+        };
+        let device: [u8; 32] = data_encoding::BASE64URL_NOPAD
+            .decode(grant.chat_public_key.as_bytes())
+            .map_err(|_| Error::Membership)?
+            .try_into()
+            .map_err(|_| Error::Membership)?;
+        if grant.community_id != facts.community
+            || grant.pseudonym != current.subject()
+            || grant.policy_epoch != snapshot.settings().policy_epoch
+            || grant.passport_policy_digest
+                != data_encoding::BASE64URL_NOPAD.encode(&configuration.passport.digest())
+            || !facts.authorized_devices.contains(&device)
+            || grant.issued_at > now
+            || grant.expires_at <= now
+            || grant.expires_at > facts.lease_end
+            || grant.expires_at > snapshot.valid_until()
+            || grant.expires_at > configuration.valid_until
+            || grant.expires_at > configuration.passport.valid_until
+        {
+            return Err(Error::Membership);
+        }
+        let context = cgts::Context {
+            snapshot: snapshot.settings(),
+            subject: current.subject(),
+            action: "community.account",
+            now: now as i64,
+        };
+        self.gates
+            .account(context, pseudonym, request, (lease, policy))
+            .await
+            .map_err(|error| match error {
+                cgts::Error::Disabled => Error::AccountUnavailable,
+                cgts::Error::Storage | cgts::Error::Account(_) => Error::Reconcile,
+                _ => Error::Gate,
+            })
     }
 
     /// Serialize policy administration with signing. Slow gate checks run outside
@@ -331,6 +446,50 @@ where
             cgts::Context<'_>,
         ) -> cgts::Result<Vec<cgts::CheckedGate>>,
     ) -> Result<Outcome> {
+        self.finish_selected(rng, challenge, presentation, (admission, None), now, checks)
+            .await
+    }
+
+    /// Perform the same real admission and also project Policy's signed account
+    /// grant from its current credential decision. No detached issuer or caller
+    /// supplied global cohort is accepted. The configured Balance publication
+    /// and selected device must be current, or no credential/grant is returned.
+    pub async fn finish_account_with<T: RngCore + CryptoRng>(
+        &self,
+        rng: &mut T,
+        challenge: &Challenge,
+        presentation: &Presentation,
+        admission: AccountAdmission<'_>,
+        now: u64,
+        checks: impl AsyncFnOnce(
+            &cgts::Gatekeeper<G, A>,
+            cgts::Context<'_>,
+        ) -> cgts::Result<Vec<cgts::CheckedGate>>,
+    ) -> Result<Outcome> {
+        self.finish_selected(
+            rng,
+            challenge,
+            presentation,
+            (admission.membership, Some(admission.device)),
+            now,
+            checks,
+        )
+        .await
+    }
+
+    async fn finish_selected<T: RngCore + CryptoRng>(
+        &self,
+        rng: &mut T,
+        challenge: &Challenge,
+        presentation: &Presentation,
+        selection: (Admission<'_>, Option<[u8; 32]>),
+        now: u64,
+        checks: impl AsyncFnOnce(
+            &cgts::Gatekeeper<G, A>,
+            cgts::Context<'_>,
+        ) -> cgts::Result<Vec<cgts::CheckedGate>>,
+    ) -> Result<Outcome> {
+        let (admission, account_device) = selection;
         let passport = self.verify(rng, challenge, presentation, now).await?;
         let snapshot = {
             let mut policy = self.policy.lock().await;
@@ -443,23 +602,20 @@ where
         }
         // A cmbr commit can precede a signing failure. No bytes escape on failure;
         // retries start with a new presentation and do not change member class.
+        let request = || cplc::CredentialRequest {
+            subject: crbk::Subject {
+                id: admitted.subject(),
+                membership: admitted.state().membership(),
+            },
+            handle: handle.display(),
+            schema_version,
+            snapshot: &snapshot,
+            gates: &checked,
+            pins: &pins,
+            devices: admission.devices,
+        };
         let cose = policy
-            .issue(
-                &self.membership,
-                cplc::CredentialRequest {
-                    subject: crbk::Subject {
-                        id: admitted.subject(),
-                        membership: admitted.state().membership(),
-                    },
-                    handle: handle.display(),
-                    schema_version,
-                    snapshot: &snapshot,
-                    gates: &checked,
-                    pins: &pins,
-                    devices: admission.devices,
-                },
-                now,
-            )
+            .issue(&self.membership, request(), now)
             .await
             .map_err(|error| match error {
                 cplc::Error::Denied(_) | cplc::Error::Revoked => Error::Policy,
@@ -498,7 +654,43 @@ where
             valid_until: verified.valid_until(),
             key_id: verified.key_id().as_bytes().to_vec(),
         };
-        Ok(Outcome::Issued(Box::new(IssuedCredential { claims, cose })))
+        let passkey_binding = policy
+            .issue_passkey_binding(
+                &self.membership,
+                request(),
+                auth.credential_id().as_ref(),
+                now,
+            )
+            .await
+            .map_err(|_| Error::Signing)?;
+        let account = match account_device {
+            Some(device) => Some(
+                policy
+                    .issue_account_grant(
+                        &self.membership,
+                        request(),
+                        device,
+                        cplc::AccountGrantContext {
+                            passport_policy_digest: passport.policy.passport.digest(),
+                            passport_valid_until: passport
+                                .policy
+                                .passport
+                                .valid_until
+                                .min(passport.policy.valid_until),
+                        },
+                        now,
+                    )
+                    .await
+                    .map_err(|_| Error::Signing)?,
+            ),
+            None => None,
+        };
+        Ok(Outcome::Issued(Box::new(IssuedCredential {
+            claims,
+            cose,
+            passkey_binding,
+            account,
+        })))
     }
 
     /// Publish a conservative community epoch advance before acknowledging each
