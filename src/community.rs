@@ -267,7 +267,8 @@ where
             .map_err(|_| Error::Membership)?;
         let pseudonym = cpsd::Pseudonym::from_bytes(&bytes).map_err(|_| Error::Membership)?;
         let grant = match &request {
-            AccountServiceRequest::Apply { grant, .. }
+            AccountServiceRequest::RegisterRecordRecipient { grant, .. }
+            | AccountServiceRequest::Apply { grant, .. }
             | AccountServiceRequest::ApplyExtended { grant, .. }
             | AccountServiceRequest::Obligations { grant, .. }
             | AccountServiceRequest::Status { grant, .. } => grant,

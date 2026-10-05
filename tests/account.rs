@@ -11,7 +11,7 @@ use sha2::{Digest, Sha256};
 use std::{
     sync::{
         Arc,
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicUsize, Ordering},
         mpsc,
     },
     time::Duration,
@@ -179,6 +179,117 @@ fn signed_status(grant: AdmissionGrant, device: &SigningKey) -> AccountServiceRe
         authorization,
         request,
     }
+}
+
+fn record_recipient(status: AccountServiceRequest, device: &SigningKey) -> AccountServiceRequest {
+    use cmty::cgts::cblc::accounting_ledger::record_epoch::{RecipientRequest, recipient_bytes};
+    let AccountServiceRequest::Status {
+        grant,
+        authorization,
+        request,
+    } = status
+    else {
+        panic!("original signed status fixture")
+    };
+    let mut request = RecipientRequest {
+        community: request.community,
+        owner: request.owner,
+        recipient_key: [67; 32],
+        chat_public_key: request.chat_public_key,
+        issued_at: request.issued_at,
+        expires_at: request.expires_at,
+        signature: String::new(),
+    };
+    request.signature = B64.encode(&device.sign(&recipient_bytes(&request).unwrap()).to_bytes());
+    AccountServiceRequest::RegisterRecordRecipient {
+        grant,
+        authorization,
+        request,
+    }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn record_recipient_registration_keeps_member_authority_and_original_account_requirement() {
+    let mut f = fixture(EXPIRY, EXPIRY).await;
+    let device = SigningKey::from_bytes(&[13; 32]);
+    let wire = record_recipient(
+        status(
+            &f.passport.pseudonym(&scope()),
+            &device,
+            f.engine.snapshot(NOW).await.unwrap().rules.policy_epoch,
+        ),
+        &device,
+    );
+    assert!(matches!(
+        f.engine
+            .account(&f.auth.authentication, wire.clone(), NOW)
+            .await,
+        Err(Error::Membership)
+    ));
+    assert!(matches!(f.issue().await, Outcome::Issued(_)));
+    assert!(matches!(
+        f.engine
+            .account(&f.auth.authentication, wire.clone(), NOW)
+            .await,
+        Err(Error::AccountUnavailable)
+    ));
+    let reads = Arc::new(AtomicUsize::new(0));
+    let observed = reads.clone();
+    let original = service(f.directory.path().join("recipient-accounts"), move || {
+        observed.fetch_add(1, Ordering::SeqCst);
+        NOW
+    })
+    .await;
+    f.engine = f.engine.with_account_service(original).await.unwrap();
+    let baseline = reads.load(Ordering::SeqCst);
+    // Outer authorization uses the current passkey/member/device/epoch, just
+    // as it does for status and accepted account updates. No ledger call occurs.
+    for case in 0..4 {
+        let mut unbound = wire.clone();
+        let AccountServiceRequest::RegisterRecordRecipient { ref mut grant, .. } = unbound else {
+            unreachable!()
+        };
+        match case {
+            0 => {
+                grant.pseudonym = cpsd::HolderSecret::generate(&mut rand::rngs::OsRng)
+                    .pseudonym(&scope())
+                    .to_hex()
+            }
+            1 => {
+                grant.chat_public_key =
+                    B64.encode(&SigningKey::from_bytes(&[14; 32]).verifying_key().to_bytes())
+            }
+            2 => grant.policy_epoch += 1,
+            3 => grant.expires_at = EXPIRY + 1,
+            _ => unreachable!(),
+        }
+        assert!(matches!(
+            f.engine.account(&f.auth.authentication, unbound, NOW).await,
+            Err(Error::Membership)
+        ));
+        assert_eq!(reads.load(Ordering::SeqCst), baseline);
+    }
+    // The original Balance owner receives the correctly bound, genuinely
+    // signed request and refuses because no accepted account frontier exists.
+    // This never substitutes a fixture frontier or an accepting proof verifier.
+    assert!(matches!(
+        f.engine
+            .account(&f.auth.authentication, wire.clone(), NOW)
+            .await,
+        Err(Error::Reconcile)
+    ));
+    assert!(reads.load(Ordering::SeqCst) > baseline);
+    f.engine
+        .membership()
+        .revoke_passkey(&f.auth.authentication, f.credential_id.clone())
+        .await
+        .unwrap();
+    let baseline = reads.load(Ordering::SeqCst);
+    assert!(matches!(
+        f.engine.account(&f.auth.authentication, wire, NOW).await,
+        Err(Error::Membership)
+    ));
+    assert_eq!(reads.load(Ordering::SeqCst), baseline);
 }
 
 #[tokio::test(flavor = "multi_thread")]
