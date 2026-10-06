@@ -29,7 +29,7 @@ serde_json = "1"
 thiserror = "2"
 
 [dev-dependencies]
-cglb = { git = "https://github.com/corbet-libs/cglb", branch = "main" }
+cgbl = { git = "https://git.corbet.ch/corbet-libs/cgbl.git", rev = "6e99d662f5620d69362ae4b17a3bd17293289dc6" }
 cnrl = { git = "https://github.com/corbet-foss/cnrl", branch = "main" }
 cgrd = { git = "https://github.com/corbet-foss/cgrd", branch = "main" }
 ed25519-dalek = "2.2"

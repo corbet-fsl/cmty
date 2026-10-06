@@ -768,10 +768,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f079e83a288787bcd14a6aea84cee5c87a67c5a3e660c30f557a3d24761b3527"
 
 [[package]]
-name = "cglb"
+name = "cgbl"
 version = "0.0.0"
-source = "git+https://github.com/corbet-libs/cglb?branch=main#d4b29830da09d62c3d8adfe422a2092622f8f7ef"
+source = "git+https://git.corbet.ch/corbet-libs/cgbl.git?rev=6e99d662f5620d69362ae4b17a3bd17293289dc6#6e99d662f5620d69362ae4b17a3bd17293289dc6"
 dependencies = [
+ "cbcn",
  "cpsd",
  "crlt",
  "csgn",
@@ -985,7 +986,7 @@ checksum = "0c9ea0ac24bc397ab3c98583a3c9ba74fa56b09a4449bbe172b9b1ddb016027a"
 name = "cmty"
 version = "0.0.0"
 dependencies = [
- "cglb",
+ "cgbl",
  "cgrd",
  "cgts",
  "chrono",

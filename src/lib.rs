@@ -54,3 +54,21 @@ impl From<cpsd::Error> for Error {
 
 /// Result with a redacted community error.
 pub type Result<T> = std::result::Result<T, Error>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn cpsd_storage_errors_map_to_storage() {
+        assert_eq!(Error::from(cpsd::Error::Storage), Error::Storage);
+        assert_eq!(Error::from(cpsd::Error::StorageCapacity), Error::Storage);
+    }
+
+    #[test]
+    fn cpsd_other_errors_map_to_passport() {
+        assert_eq!(Error::from(cpsd::Error::InvalidProof), Error::Passport);
+        assert_eq!(Error::from(cpsd::Error::InvalidTimestamp), Error::Passport);
+        assert_eq!(Error::from(cpsd::Error::PassportExpired), Error::Passport);
+    }
+}

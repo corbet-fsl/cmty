@@ -118,7 +118,7 @@ where
         let store = storage.challenges();
         let community = store.community().clone();
         let name = community_text(&community)?;
-        if parts.policy.key_ring().map_err(|_| Error::Policy)?.issuer() != name {
+        if parts.policy.key_ring().map_err(policy_error)?.issuer() != name {
             return Err(Error::Scope);
         }
         if config.challenge_lifetime == 0 || config.challenge_lifetime > 300 {
@@ -172,11 +172,7 @@ where
         self.flush_revocations(now).await?;
         let mut signer = self.policy.lock().await;
         let policy = self.snapshot_locked(&signer, now).await?;
-        let lifetime = self
-            .config
-            .read()
-            .map_err(|_| Error::Policy)?
-            .challenge_lifetime;
+        let lifetime = self.config.read().map_err(policy_error)?.challenge_lifetime;
         let deadline = now
             .checked_add(lifetime)
             .ok_or(Error::Time)?
@@ -198,7 +194,7 @@ where
         let signed_request = signer
             .sign_presentation_request(&request, now)
             .await
-            .map_err(|_| Error::Signing)?;
+            .map_err(signing_error)?;
         Ok(Challenge {
             request,
             signed_request,
@@ -331,16 +327,8 @@ where
         let passport = self.verify(rng, challenge, presentation, now).await?;
         let snapshot = {
             let mut policy = self.policy.lock().await;
-            if !passport
-                .policy
-                .unchanged(&self.snapshot_locked(&policy, now).await?)
-            {
-                return Err(Error::Policy);
-            }
-            policy
-                .verified_settings(now)
-                .await
-                .map_err(|_| Error::Policy)?
+            ensure_unchanged(&passport.policy, &self.snapshot_locked(&policy, now).await?)?;
+            policy.verified_settings(now).await.map_err(policy_error)?
         };
         let auth = admission.authentication;
         let row = match self.membership.resume(auth).await {
@@ -348,9 +336,12 @@ where
             Err(cmbr::Error::Restricted) => return Ok(Outcome::Vetoed),
             Err(error) => return Err(member_error(error)),
         };
-        if row.community() != community_text(&self.community)?
-            || row.subject() != passport.member_id
-        {
+        if !scope_subject_matches(
+            row.community(),
+            community_text(&self.community)?,
+            row.subject(),
+            &passport.member_id,
+        ) {
             return Err(Error::Membership);
         }
         let subject = crbk::Subject {
@@ -376,20 +367,15 @@ where
             Err(_) => return Err(Error::Gate),
         };
         let mut policy = self.policy.lock().await;
-        if !passport
-            .policy
-            .unchanged(&self.snapshot_locked(&policy, now).await?)
-        {
-            return Err(Error::Policy);
-        }
+        ensure_unchanged(&passport.policy, &self.snapshot_locked(&policy, now).await?)?;
         policy
             .validate_snapshot(&snapshot, now)
             .await
-            .map_err(|_| Error::Policy)?;
+            .map_err(policy_error)?;
         let decision = policy
             .may(&snapshot, subject, ADMISSION_ACTION, &checked, now)
             .await
-            .map_err(|_| Error::Policy)?;
+            .map_err(policy_error)?;
         if !decision.allowed {
             // This explicit admission attempt may lapse an admitted row. Merely
             // rendering the cmbr lobby never performs this transition.
@@ -412,7 +398,7 @@ where
             .ok_or(Error::Membership)?;
         let schema = policy
             .schema()
-            .map_err(|_| Error::Policy)?
+            .map_err(policy_error)?
             .ok_or(Error::Policy)?;
         let schema_version = schema.version;
         let mut pins = Vec::new();
@@ -432,12 +418,7 @@ where
                 });
             }
         }
-        if !passport
-            .policy
-            .unchanged(&self.snapshot_locked(&policy, now).await?)
-        {
-            return Err(Error::Policy);
-        }
+        ensure_unchanged(&passport.policy, &self.snapshot_locked(&policy, now).await?)?;
         // A cmbr commit can precede a signing failure. No bytes escape on failure;
         // retries start with a new presentation and do not change member class.
         let cose = policy
@@ -458,17 +439,14 @@ where
                 now,
             )
             .await
-            .map_err(|error| match error {
-                cplc::Error::Denied(_) | cplc::Error::Revoked => Error::Policy,
-                _ => Error::Signing,
-            })?;
+            .map_err(issuance_error)?;
         let verified = policy
             .key_ring()
-            .map_err(|_| Error::Signing)?
+            .map_err(signing_error)?
             .verify(&cose, csgn::Kind::Credential, now)
-            .map_err(|_| Error::Signing)?;
+            .map_err(signing_error)?;
         let payload: cplc::Credential =
-            serde_json::from_slice(verified.payload()).map_err(|_| Error::Signing)?;
+            serde_json::from_slice(verified.payload()).map_err(signing_error)?;
         let claims = CredentialClaims {
             version: 1,
             community: payload.community,
@@ -510,15 +488,15 @@ where
             .await
             .map_err(member_error)?;
         if !events.is_empty() {
-            policy.bump_epoch().await.map_err(|_| Error::Policy)?;
+            policy.bump_epoch().await.map_err(policy_error)?;
             policy
                 .publish(cplc::SnapshotKind::Settings, now)
                 .await
-                .map_err(|_| Error::Policy)?;
+                .map_err(policy_error)?;
             policy
                 .publish(cplc::SnapshotKind::RevocationList, now)
                 .await
-                .map_err(|_| Error::Policy)?;
+                .map_err(policy_error)?;
             for event in &events {
                 self.membership
                     .acknowledge_revocation(event)
@@ -529,12 +507,12 @@ where
         Ok(events.len())
     }
 
-    /// Install authenticated global policy metadata after checking cglb's signed
+    /// Install authenticated global policy metadata after checking cgbl's signed
     /// public status. Never source this from a holder. Epoch rollback is refused;
     /// the signing mutex excludes an update halfway through local issuance.
     pub async fn update_passport_policy(&self, passport: PassportPolicy) -> Result<()> {
         let _policy = self.policy.lock().await;
-        let mut config = self.config.write().map_err(|_| Error::Policy)?;
+        let mut config = self.config.write().map_err(policy_error)?;
         if passport.epoch < config.passport.epoch
             || passport.gates.is_empty()
             || !passport.valid_until.is_multiple_of(86_400)
@@ -567,7 +545,7 @@ where
             return Err(Error::Policy);
         }
         let _policy = self.policy.lock().await;
-        let mut config = self.config.write().map_err(|_| Error::Policy)?;
+        let mut config = self.config.write().map_err(policy_error)?;
         if passport.epoch < config.passport.epoch {
             return Err(Error::Policy);
         }
@@ -588,19 +566,19 @@ where
         now: u64,
     ) -> Result<PolicySnapshot> {
         check_time(now)?;
-        let rules = policy.settings(now).await.map_err(|_| Error::Policy)?;
-        let config = self.config.read().map_err(|_| Error::Policy)?.clone();
+        let rules = policy.settings(now).await.map_err(policy_error)?;
+        let config = self.config.read().map_err(policy_error)?.clone();
         let snapshot = PolicySnapshot {
             rules,
             schema_version: policy
                 .schema()
-                .map_err(|_| Error::Policy)?
+                .map_err(policy_error)?
                 .ok_or(Error::Policy)?
                 .version
                 .into(),
             passport: config.passport,
             valid_until: config.valid_until,
-            signing_keys: policy.key_ring().map_err(|_| Error::Policy)?.clone(),
+            signing_keys: policy.key_ring().map_err(policy_error)?.clone(),
         };
         if snapshot.passport.valid_until <= now
             || snapshot.passport.valid_until >= cpsd::TIME_LIMIT
@@ -620,6 +598,44 @@ fn member_error(error: cmbr::Error) -> Error {
     }
 }
 
+/// Shared redaction for policy-unavailable call sites.
+fn policy_error<E>(_: E) -> Error {
+    Error::Policy
+}
+
+/// Shared redaction for signing-failure call sites.
+fn signing_error<E>(_: E) -> Error {
+    Error::Signing
+}
+
+/// Redaction for credential issuance: denials and revocations are policy
+/// refusals, every other issuance failure is a signing failure.
+fn issuance_error(error: cplc::Error) -> Error {
+    match error {
+        cplc::Error::Denied(_) | cplc::Error::Revoked => Error::Policy,
+        _ => Error::Signing,
+    }
+}
+
+/// Scope and subject isolation check: both the community scope and the member
+/// subject must match.
+fn scope_subject_matches(
+    actual_community: &str,
+    expected_community: &str,
+    actual_subject: &str,
+    expected_subject: &str,
+) -> bool {
+    actual_community == expected_community && actual_subject == expected_subject
+}
+
+/// Shared policy-freshness guard used at each issuance checkpoint.
+fn ensure_unchanged(expected: &PolicySnapshot, current: &PolicySnapshot) -> Result<()> {
+    if !expected.unchanged(current) {
+        return Err(Error::Policy);
+    }
+    Ok(())
+}
+
 fn check_time(now: u64) -> Result<()> {
     if now == 0
         || now >= cpsd::TIME_LIMIT
@@ -628,4 +644,511 @@ fn check_time(now: u64) -> Result<()> {
         return Err(Error::Time);
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use cpsd::rand::{SeedableRng, rngs::StdRng};
+    use cpsd::{
+        AuthenticatedIssuance, GateId, HolderSecret, IssuerKey, KeyId, Passport,
+        PassportAttributes, issuance_challenge, issue_blind_once, request_issue,
+    };
+    use ed25519_dalek::{Signer, SigningKey};
+    use std::sync::{Arc, atomic::AtomicI64};
+
+    const NOW: u64 = 1_800_000_000 / 86_400 * 86_400;
+    const EXPIRY: u64 = NOW + 90 * 86_400;
+    const ORIGIN: &str = "https://members.example.org";
+
+    #[test]
+    fn member_error_maps_identity_to_scope() {
+        assert_eq!(member_error(cmbr::Error::Identity), Error::Scope);
+        assert_eq!(member_error(cmbr::Error::Transition), Error::Membership);
+    }
+
+    #[test]
+    fn issuance_error_maps_denials_and_revocation_to_policy() {
+        let denied = cplc::Error::Denied(crbk::Decision {
+            allowed: false,
+            missing: Vec::new(),
+        });
+        assert_eq!(issuance_error(denied), Error::Policy);
+        assert_eq!(issuance_error(cplc::Error::Revoked), Error::Policy);
+    }
+
+    #[test]
+    fn issuance_error_maps_all_other_failures_to_signing() {
+        assert_eq!(issuance_error(cplc::Error::Signing), Error::Signing);
+        assert_eq!(issuance_error(cplc::Error::Storage), Error::Signing);
+        assert_eq!(issuance_error(cplc::Error::Verification), Error::Signing);
+        assert_eq!(issuance_error(cplc::Error::Conflict), Error::Signing);
+    }
+
+    #[test]
+    fn scope_subject_matches_checks_both_identifiers() {
+        assert!(scope_subject_matches(
+            "example", "example", "member-a", "member-a"
+        ));
+        assert!(!scope_subject_matches(
+            "foreign", "example", "member-a", "member-a"
+        ));
+        assert!(!scope_subject_matches(
+            "example", "example", "member-a", "member-b"
+        ));
+        assert!(!scope_subject_matches(
+            "foreign", "example", "member-a", "member-b"
+        ));
+    }
+
+    #[test]
+    fn check_time_accepts_now() {
+        assert!(check_time(1_800_000_000).is_ok());
+    }
+
+    #[test]
+    fn check_time_rejects_zero_and_limit() {
+        assert_eq!(check_time(0), Err(Error::Time));
+        assert_eq!(check_time(cpsd::TIME_LIMIT), Err(Error::Time));
+    }
+
+    #[test]
+    fn check_time_rejects_year_beyond_9999() {
+        // 300B is below TIME_LIMIT (1<<40) but its calendar year exceeds 9999.
+        assert_eq!(check_time(300_000_000_000), Err(Error::Time));
+    }
+
+    /// Real signature verification at the external authority boundary.
+    #[derive(Clone)]
+    struct Authority;
+
+    impl clbs::Verifier for Authority {
+        async fn verify_legal(&self, order: &clbs::SignedOrder) -> clbs::Result<()> {
+            let signature = ed25519_dalek::Signature::from_slice(&order.proof)
+                .map_err(|_| clbs::Error::Denied)?;
+            SigningKey::from_bytes(&[7; 32])
+                .verifying_key()
+                .verify_strict(&order.order.signing_payload()?, &signature)
+                .map_err(|_| clbs::Error::Denied)
+        }
+
+        async fn verify_self_ban(&self, _: &clbs::SignedOrder) -> clbs::Result<()> {
+            Err(clbs::Error::Denied)
+        }
+    }
+
+    #[derive(Clone)]
+    struct Clock(Arc<AtomicI64>);
+
+    impl clbs::Clock for Clock {
+        fn now(&self) -> clbs::Result<i64> {
+            Ok(self.0.load(std::sync::atomic::Ordering::SeqCst))
+        }
+    }
+
+    fn legal_order() -> clbs::SignedOrder {
+        let order = clbs::Order {
+            community: "example".into(),
+            id: "legal-test".into(),
+            subject: "member".into(),
+            reference: "synthetic-authority".into(),
+            entered_by: "authority".into(),
+            kind: clbs::OrderKind::Legal {
+                authority: "test-authority".into(),
+            },
+            scope: clbs::Scope::All,
+            period: clbs::Period {
+                starts_at: NOW as i64,
+                ends_at: Some((NOW + 3600) as i64),
+            },
+        };
+        let proof = SigningKey::from_bytes(&[7; 32])
+            .sign(&order.signing_payload().unwrap())
+            .to_bytes()
+            .to_vec();
+        clbs::SignedOrder { order, proof }
+    }
+
+    #[test]
+    fn authority_clock_reports_configured_time() {
+        let clock = Clock(Arc::new(AtomicI64::new(42)));
+        assert_eq!(clbs::Clock::now(&clock).unwrap(), 42);
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn authority_accepts_valid_and_rejects_tampered_orders() {
+        let authority = Authority;
+        let valid = legal_order();
+        assert!(
+            clbs::Verifier::verify_legal(&authority, &valid)
+                .await
+                .is_ok()
+        );
+        let mut tampered = legal_order();
+        tampered.proof[63] ^= 1;
+        assert!(matches!(
+            clbs::Verifier::verify_legal(&authority, &tampered).await,
+            Err(clbs::Error::Denied)
+        ));
+        let malformed = clbs::SignedOrder {
+            order: legal_order().order,
+            proof: vec![0; 8],
+        };
+        assert!(matches!(
+            clbs::Verifier::verify_legal(&authority, &malformed).await,
+            Err(clbs::Error::Denied)
+        ));
+        assert!(matches!(
+            clbs::Verifier::verify_self_ban(&authority, &valid).await,
+            Err(clbs::Error::Denied)
+        ));
+    }
+
+    type TestEngine = Community<
+        crate::storage::MemoryStorage,
+        cmbr::LibsqlStorage,
+        Authority,
+        Clock,
+        cgts::LibsqlStore,
+        cgts::LegalGate<clbs::LibsqlStore, Authority>,
+        crate::adapters::SharedRulebook<crbk::LibsqlStore>,
+        cplc::LibsqlStore,
+        csgn::LibsqlStore,
+    >;
+
+    async fn test_db(directory: &tempfile::TempDir) -> crlt::Db {
+        let db = crlt::Db::open(crlt::Config::new(
+            format!("file://{}", directory.path().join("unit.db").display()),
+            "",
+        ))
+        .await
+        .unwrap();
+        let mut schemas = cmbr::SCHEMAS.to_vec();
+        schemas.extend([
+            ("cgts", cgts::SCHEMA),
+            ("crbk", crbk::SCHEMA),
+            ("cplc", cplc::SCHEMA),
+            ("csgn", csgn::SCHEMA),
+            ("cpsd", crate::storage::SCHEMA),
+            ("cmbr-device-keys", cmbr::DEVICE_KEYS_SCHEMA),
+        ]);
+        let migrations: Vec<_> = schemas
+            .iter()
+            .enumerate()
+            .map(|(i, (name, sql))| crlt::Migration::new(i as u32 + 1, name, sql))
+            .collect();
+        db.migrate(&migrations).await.unwrap();
+        assert_eq!(db.migrate(&migrations).await.unwrap(), 0);
+        db
+    }
+
+    fn test_rulebook() -> crbk::Rulebook {
+        let mut rules = crbk::Rulebook::default();
+        for (level, name, provider) in [
+            (crbk::GateLevel::Global, "global-test", PASSPORT_PROVIDER),
+            (crbk::GateLevel::Community, "dev-test", "test-only"),
+        ] {
+            for key in [
+                crbk::gate_key(level, name),
+                crbk::provider_key(level, name, provider),
+            ] {
+                rules
+                    .define(
+                        key,
+                        crbk::Setting {
+                            value_type: crbk::SettingType::Boolean,
+                            nullable: false,
+                            default: true.into(),
+                            bounds: crbk::Bounds::default(),
+                            lowest_layer: crbk::Layer::Community,
+                            kind: crbk::SettingKind::Technical,
+                        },
+                    )
+                    .unwrap();
+            }
+        }
+        rules
+            .define(
+                crbk::action_key(ADMISSION_ACTION),
+                crbk::Setting {
+                    value_type: crbk::SettingType::Policy,
+                    nullable: true,
+                    default: serde_json::to_value(crbk::ActionPolicy {
+                        all_of: vec![
+                            crbk::Requirement {
+                                gate: "global-test".into(),
+                                level: crbk::GateLevel::Global,
+                                provider: None,
+                            },
+                            crbk::Requirement {
+                                gate: "dev-test".into(),
+                                level: crbk::GateLevel::Community,
+                                provider: None,
+                            },
+                        ],
+                        ..Default::default()
+                    })
+                    .unwrap(),
+                    bounds: crbk::Bounds::default(),
+                    lowest_layer: crbk::Layer::Community,
+                    kind: crbk::SettingKind::Technical,
+                },
+            )
+            .unwrap();
+        rules
+    }
+
+    fn test_schema() -> cplc::cshm::Schema {
+        serde_json::from_value(serde_json::json!({ "community":"example", "version":3,
+            "public":[{"id":"restricted-field","label":"Restricted field", "kind":{"type":"yes_no"},
+            "required":false,"filterable":false,"change_preset":"stable","no_contact_details":false}], "private":[] })).unwrap()
+    }
+
+    fn test_config(expiry: u64, valid_until: u64) -> Config {
+        Config {
+            passport: PassportPolicy {
+                epoch: 7,
+                valid_until: expiry,
+                gates: [GateId::new("global-test").unwrap()].into(),
+            },
+            valid_until,
+            challenge_lifetime: 60,
+        }
+    }
+
+    async fn blind_holder(rng: &mut StdRng, expiry: u64, epoch: u64) -> Passport {
+        let gate = GateId::new("global-test").unwrap();
+        let issuer = IssuerKey::generate(
+            rng,
+            KeyId::new("shared-issuer").unwrap(),
+            vec![gate.clone()],
+        )
+        .unwrap();
+        let secret = HolderSecret::generate(rng);
+        let store = cpsd::MemoryStore::new(cpsd::CommunityId::new("issuer").unwrap(), 10).unwrap();
+        let auth = AuthenticatedIssuance::new([1; 32], [2; 32]);
+        let challenge = issuance_challenge(rng, &store, issuer.public_key(), &auth, NOW + 60)
+            .await
+            .unwrap();
+        let (request, pending) =
+            request_issue(rng, &secret, issuer.public_key(), &challenge).unwrap();
+        let blind = issue_blind_once(
+            rng,
+            &store,
+            &issuer,
+            &auth,
+            &request,
+            &challenge,
+            &PassportAttributes::new(expiry, epoch).with_gate(gate, expiry),
+            NOW,
+        )
+        .await
+        .unwrap();
+        pending.finish(&blind).unwrap()
+    }
+
+    /// Minimal real engine: migrated database, real membership/gate/policy
+    /// facades and a blind holder identity. No passkey ceremony is performed;
+    /// these tests exercise begin/snapshot paths that need no authentication.
+    async fn test_engine() -> (TestEngine, crlt::Db, tempfile::TempDir) {
+        let directory = tempfile::tempdir().unwrap();
+        let db = test_db(&directory).await;
+        let clock = Clock(Arc::new(AtomicI64::new(NOW as i64)));
+        let mut rng = StdRng::seed_from_u64(42);
+        let holder = blind_holder(&mut rng, EXPIRY, 7).await;
+        let rules = test_rulebook();
+        let store = crate::adapters::SharedRulebook::new(crbk::LibsqlStore::new(db.clone()));
+        let signer = csgn::PersistentSigner::create(
+            csgn::LibsqlStore::new(db.community("example").unwrap()),
+            "example",
+            csgn::SecretKey::from_seed(&mut [1; 32]),
+            NOW,
+            ESTABLISHED_MEMBER_LIFETIME,
+        )
+        .await
+        .unwrap();
+        let mut policy = cplc::Policy::create(
+            store,
+            cplc::LibsqlStore::new(&db, "example").unwrap(),
+            signer,
+            cplc::Config {
+                credential_action: ADMISSION_ACTION.into(),
+                snapshot_validity: 86_400,
+            },
+        )
+        .await
+        .unwrap();
+        policy
+            .schedule_rules(
+                None,
+                crbk::Change {
+                    rulebook: rules,
+                    announced_at: NOW as i64,
+                    effective_at: NOW as i64,
+                    notice_seconds: 0,
+                    policy_epoch: 1,
+                },
+            )
+            .await
+            .unwrap();
+        policy.set_schema(test_schema()).await.unwrap();
+        let configuration = test_config(EXPIRY, EXPIRY);
+        let engine = Community::new(
+            crate::storage::MemoryStorage::new(cpsd::CommunityId::new("example").unwrap(), 32)
+                .unwrap(),
+            vec![holder.issuer().clone()],
+            Parts {
+                membership: cmbr::Membership::new(
+                    &db,
+                    cmbr::LibsqlStorage::new(&db, "example").unwrap(),
+                    cmbr::Config {
+                        pending_days: 2,
+                        lease_months: 12,
+                        membership_action: ADMISSION_ACTION.into(),
+                        release_period: crgs::ReleasePeriod::default(),
+                        rp_id: "members.example.org".into(),
+                        origins: vec![ckyh::Url::parse(ORIGIN).unwrap()],
+                    },
+                    Authority,
+                    clock,
+                )
+                .unwrap(),
+                gates: cgts::Gatekeeper::new(
+                    cgts::LibsqlStore::new(&db, "example").unwrap(),
+                    cgts::LegalGate::new(
+                        clbs::LibsqlStore::new(&db, "example").unwrap(),
+                        Authority,
+                    ),
+                )
+                .unwrap(),
+                policy,
+            },
+            configuration,
+        )
+        .unwrap();
+        (engine, db, directory)
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn challenge_accessors_match_authenticated_request_and_verified_holder() {
+        let (engine, _db, _directory) = test_engine().await;
+        // Reproduce the fixture's issuer and holder through real blind issuance.
+        let mut rng = StdRng::seed_from_u64(42);
+        let holder = blind_holder(&mut rng, EXPIRY, 7).await;
+        let challenge = engine.begin(&mut rng, NOW).await.unwrap();
+        let snapshot = engine.snapshot(NOW).await.unwrap();
+        let origin = cpsd::AuthenticatedCommunity::from_authenticated_origin(
+            engine.community().clone(),
+            snapshot.signing_keys,
+        );
+        let signed: fn(&Challenge) -> &[u8] = std::hint::black_box(Challenge::signed_request);
+        let request: fn(&Challenge) -> &PresentationRequest =
+            std::hint::black_box(Challenge::request);
+        let authenticated = origin.authenticate(signed(&challenge), NOW).unwrap();
+        assert_eq!(request(&challenge).to_bytes(), authenticated.to_bytes());
+        let proof = holder
+            .present(&mut rng, &origin, signed(&challenge), NOW)
+            .unwrap();
+        let verified = engine
+            .verify(&mut rng, &challenge, &proof, NOW)
+            .await
+            .unwrap();
+        let member: fn(&VerifiedPassport) -> &str =
+            std::hint::black_box(VerifiedPassport::member_id);
+        assert_eq!(
+            member(&verified),
+            holder.pseudonym(engine.community()).to_hex()
+        );
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn begin_rejects_poisoned_config_lock() {
+        let (engine, _db, _directory) = test_engine().await;
+        // Premise: a fresh engine holds no revocation events, so begin writes
+        // nothing before the config read; the snapshot path is read-only.
+        assert!(
+            engine
+                .membership()
+                .revocations(256)
+                .await
+                .unwrap()
+                .is_empty()
+        );
+        // Poison the config lock by holding its write guard across a panic in
+        // a scoped thread. Update/refresh never hold the guard across await,
+        // so no public flow can poison it; this is the only way to reach the
+        // RwLock failure mapping at community.rs:178.
+        std::thread::scope(|scope| {
+            let handle = scope.spawn(|| {
+                let _guard = engine.config.write().unwrap();
+                panic!("poison config lock for coverage");
+            });
+            let _ = handle.join();
+        });
+        assert!(engine.config.read().is_err());
+        let mut rng = StdRng::seed_from_u64(1);
+        assert!(matches!(
+            engine.begin(&mut rng, NOW).await,
+            Err(Error::Policy)
+        ));
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn snapshot_unchanged_detects_each_field_difference() {
+        let (engine, _db, _directory) = test_engine().await;
+        let base = engine.snapshot(NOW).await.unwrap();
+        assert!(base.unchanged(&base));
+        let mut other = base.clone();
+        other.rules.community = "other".into();
+        assert!(!base.unchanged(&other));
+        assert!(!other.unchanged(&base));
+        let mut other = base.clone();
+        other.rules.revision = base.rules.revision.wrapping_add(1);
+        assert!(!base.unchanged(&other));
+        assert!(!other.unchanged(&base));
+        let mut other = base.clone();
+        other.rules.policy_epoch = base.rules.policy_epoch.wrapping_add(1);
+        assert!(!base.unchanged(&other));
+        assert!(!other.unchanged(&base));
+        let mut other = base.clone();
+        other
+            .rules
+            .content
+            .insert("coverage-probe".into(), serde_json::json!(true));
+        assert!(!base.unchanged(&other));
+        assert!(!other.unchanged(&base));
+        let mut other = base.clone();
+        other.schema_version = base.schema_version.wrapping_add(1);
+        assert!(!base.unchanged(&other));
+        assert!(!other.unchanged(&base));
+        let mut other = base.clone();
+        other.passport.epoch = base.passport.epoch.wrapping_add(1);
+        assert!(!base.unchanged(&other));
+        assert!(!other.unchanged(&base));
+        let mut other = base.clone();
+        other.passport.valid_until = base.passport.valid_until.wrapping_add(86_400);
+        assert!(!base.unchanged(&other));
+        assert!(!other.unchanged(&base));
+        let mut other = base.clone();
+        other.passport.gates.clear();
+        assert!(!base.unchanged(&other));
+        assert!(!other.unchanged(&base));
+        let mut other = base.clone();
+        other.valid_until = base.valid_until.wrapping_add(1);
+        assert!(!base.unchanged(&other));
+        assert!(!other.unchanged(&base));
+        engine
+            .policy()
+            .lock()
+            .await
+            .rotate(csgn::SecretKey::from_seed(&mut [8; 32]), NOW)
+            .await
+            .unwrap();
+        let rotated = engine.snapshot(NOW).await.unwrap();
+        assert!(base.signing_keys.to_cbor() != rotated.signing_keys.to_cbor());
+        let mut other = base.clone();
+        other.signing_keys = rotated.signing_keys.clone();
+        assert!(!base.unchanged(&other));
+        assert!(!other.unchanged(&base));
+    }
 }

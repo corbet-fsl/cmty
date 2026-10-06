@@ -24,7 +24,7 @@ carries the expiry and second-device warnings. Expired registration or loss of
 all passkeys permanently prevents rejoining this community: **NO RETURN**.
 
 Call `flush_revocations` after membership revocation/maintenance and distribute
-the published epoch; `begin` also drains pending events. Authenticate cglb's
+the published epoch; `begin` also drains pending events. Authenticate cgbl's
 public status before `update_passport_policy`; changed global epochs reject old
 passports and prevent suspended holders from renewing community credentials.
 Slow gate checks run outside the policy mutex. Each facade retains its own

@@ -148,10 +148,88 @@ pub enum Outcome {
     Issued(Box<IssuedCredential>),
 }
 
+/// Every constructible community identifier fits the issuer bound, so the
+/// runtime length check below would be dead code; enforce the contract at
+/// compile time instead and keep only the UTF-8 and NUL rejections live.
+const _: () = assert!(cpsd::MAX_COMMUNITY_ID_LEN <= csgn::MAX_ISSUER_LEN);
+
 pub(crate) fn community_text(community: &CommunityId) -> crate::Result<&str> {
     let value = std::str::from_utf8(community.as_bytes()).map_err(|_| crate::Error::Scope)?;
-    if value.contains('\0') || value.len() > csgn::MAX_ISSUER_LEN {
+    if value.contains('\0') {
         return Err(crate::Error::Scope);
     }
     Ok(value)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::Error;
+
+    #[test]
+    fn community_text_accepts_canonical_scope() {
+        let id = CommunityId::new("example").unwrap();
+        assert_eq!(community_text(&id).unwrap(), "example");
+    }
+
+    #[test]
+    fn community_text_rejects_non_utf8() {
+        let id = CommunityId::new([0xff, 0xfe]).unwrap();
+        assert_eq!(community_text(&id), Err(Error::Scope));
+    }
+
+    #[test]
+    fn community_text_rejects_embedded_nul() {
+        let id = CommunityId::new("a\0b").unwrap();
+        assert_eq!(community_text(&id), Err(Error::Scope));
+    }
+
+    #[test]
+    fn community_text_accepts_max_length_scope() {
+        // Longest constructible identifier stays within the issuer bound
+        // enforced by the compile-time assertion above.
+        let scope = "x".repeat(cpsd::MAX_COMMUNITY_ID_LEN);
+        let id = CommunityId::new(&scope).unwrap();
+        assert_eq!(community_text(&id).unwrap(), scope);
+    }
+
+    #[test]
+    fn credential_payload_rejects_overflow_schema_version() {
+        let claims = CredentialClaims {
+            version: 1,
+            community: "example".into(),
+            member_id: "member".into(),
+            handle: "handle".into(),
+            gates: Vec::new(),
+            pins: BTreeMap::new(),
+            devices: Vec::new(),
+            schema_version: u64::from(u32::MAX) + 1,
+            policy_epoch: 1,
+            issued: 0,
+            valid_until: 0,
+            key_id: Vec::new(),
+        };
+        assert_eq!(claims.payload(), Err(Error::Policy));
+    }
+
+    #[test]
+    fn credential_payload_roundtrips_valid_claims() {
+        let claims = CredentialClaims {
+            version: 1,
+            community: "example".into(),
+            member_id: "member".into(),
+            handle: "handle".into(),
+            gates: Vec::new(),
+            pins: BTreeMap::new(),
+            devices: Vec::new(),
+            schema_version: 3,
+            policy_epoch: 1,
+            issued: 0,
+            valid_until: 0,
+            key_id: Vec::new(),
+        };
+        let payload = claims.payload().unwrap();
+        assert_eq!(payload.community, "example");
+        assert_eq!(payload.schema_version, 3);
+    }
 }

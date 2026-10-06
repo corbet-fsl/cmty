@@ -81,7 +81,7 @@ issuance until acknowledged. An offline consumer needs fresh epoch/revocation
 metadata; cryptographic verification alone cannot recall a previously issued
 credential. Already valid credentials remain bounded by their signed expiry.
 
-Global suspension is separate: after authenticating cglb's signed public status,
+Global suspension is separate: after authenticating cgbl's signed public status,
 the service calls `update_passport_policy`. This refuses epoch rollback and
 serializes updates with local signing. Changed global metadata invalidates old
 challenges; fresh challenges reject old-epoch passports. A suspended person
@@ -133,7 +133,7 @@ every Corbet dependency. Cargo runs only on CI.
 cblc's punishment/change-token/record extensions are not yet proven. The actual
 cgts and cmbr adapters therefore refuse those operations; they never change a
 pin without a proven spent token. Positive extension/spend integration remains
-blocked on the leaf proof work. This facade has no production test gate; cglb's
+blocked on the leaf proof work. This facade has no production test gate; cgbl's
 explicit development feature is absent from release builds and refused in
 production mode. Test fixtures are compiled only into integration test binaries.
 
