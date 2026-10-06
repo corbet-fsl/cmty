@@ -25,6 +25,28 @@ pub struct PassportPolicy {
     pub gates: BTreeSet<GateId>,
 }
 
+impl PassportPolicy {
+    /// Canonical binding for the entire authenticated global cohort. Account
+    /// grants carry this digest in Policy's original signed v3 payload.
+    /// The SHA-256 input is the domain below, big-endian u64 epoch, expiry,
+    /// gate count, then each sorted gate's u64 byte length and UTF-8 bytes.
+    /// Callers must obtain this policy from authenticated global configuration.
+    pub fn digest(&self) -> [u8; 32] {
+        use sha2::{Digest, Sha256};
+        let mut hash = Sha256::new();
+        hash.update(b"cmty.passport-policy.v1\0");
+        hash.update(self.epoch.to_be_bytes());
+        hash.update(self.valid_until.to_be_bytes());
+        hash.update((self.gates.len() as u64).to_be_bytes());
+        for gate in &self.gates {
+            let bytes = gate.as_str().as_bytes();
+            hash.update((bytes.len() as u64).to_be_bytes());
+            hash.update(bytes);
+        }
+        hash.finalize().into()
+    }
+}
+
 /// Effective state from the policy facade; never accept this from an HTTP client.
 #[derive(Clone)]
 pub struct PolicySnapshot {
@@ -102,6 +124,12 @@ pub struct IssuedCredential {
     pub claims: CredentialClaims,
     /// Tagged Ed25519 COSE_Sign1 bytes.
     pub cose: Vec<u8>,
+    /// Original Policy-signed binding for this session's actual live passkey.
+    /// This public verification material is not a fresh G3 operation assertion.
+    pub passkey_binding: Vec<u8>,
+    /// Original Policy-signed account grant, only when explicitly requested
+    /// through `finish_account_with`. It retains the same trusted cohort.
+    pub account: Option<cgts::cblc::admission::AdmissionGrant>,
 }
 
 impl CredentialClaims {
@@ -233,3 +261,7 @@ mod tests {
         assert_eq!(payload.schema_version, 3);
     }
 }
+
+#[cfg(test)]
+#[path = "../tests/unit/snapshots.rs"]
+mod snapshot_tests;

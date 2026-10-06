@@ -157,3 +157,38 @@ single-use state to its initiating session. A passkey ecosystem is a device;
 there is no manual key approval or recovery identity. Removing one passkey keeps
 access through the remaining keys; losing every key permanently releases the
 membership under NO RETURN.
+
+## Member account forwarding
+
+`with_account_service` installs the original Balance service through Gatekeeping;
+its immutable community must agree. The host creates the native store outside
+its async executor and supplies a live authoritative clock. The canonical
+request/response types remain Balance's, without a second ledger.
+
+`account` flushes pending revocations, takes the actual policy and membership
+leases, and revalidates the exact passkey after acquiring the member lease. It
+binds the grant to that current admitted pseudonym and an authorized device, and
+caps it by the live member lease, authenticated settings and global configuration.
+It compares the signed community policy epoch and canonical digest of the entire
+authenticated global passport cohort under those same leases. The digest covers
+epoch, common expiry and the sorted gate set; changing any one invalidates an old
+grant. It does not infer either epoch from a coarse issuance timestamp.
+Gatekeeping also applies the original legal veto. The service retains both
+leases after caller cancellation until Balance finishes. A panicked Balance
+worker fences its service; a dispatched error returns `Reconcile`, never a retry
+instruction. No record or punishment gate is enabled by this transport.
+
+`finish_account_with` uses the same passport, gates and membership admission
+path as `finish_with`, then calls the original Policy `issue_account_grant`
+with its validated credential request and Community's authenticated global
+cohort. The selected device must already be authorized. Policy signs its v3
+COSE grant using the existing community ring and retained Balance publication;
+Community adds no issuer key or detached signature. `IssuedCredential.account`
+contains that original grant only for this explicit account path. Failure
+returns neither credential nor grant; membership may already have committed,
+so the caller resumes with a fresh passport challenge.
+
+The native fixture exercises real passport/passkey admission, original Policy
+grant issuance, SQL account status and signature verification. It does not
+claim a proof/commit transition; those and full release qualification remain
+required in addition to the status round trip.
