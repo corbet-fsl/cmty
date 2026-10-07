@@ -5,7 +5,7 @@ import { checkPins } from './check-pins.mjs';
 const revision = '6b94dacd7fa04aa8847c62c6471a1fc5c0f6c9dc';
 const older = '9c076b1e4050529406df27533e12c8e0dd1fc0db';
 const source = (name, rev = revision) =>
-  `git+https://github.com/corbet-foss/${name}?rev=${rev}#${rev}`;
+  `git+https://git.corbet.ch/corbet-foss/${name}?rev=${rev}#${rev}`;
 const pkg = (name, source = null, dependencies = []) => ({ name, source, dependencies });
 const graph = (...packages) => ({
   packages: [pkg('crbk'), pkg('crlt', source('crlt')), ...packages],
@@ -25,7 +25,7 @@ test('reject duplicate direct and transitive Corbet packages', () => {
 
 test('reject other branches, tags, unqualified and abbreviated revisions', () => {
   for (const query of ['branch=develop', 'tag=v1', '', `rev=${revision.slice(0, 7)}`]) {
-    const floating = `git+https://github.com/corbet-foss/csgn?${query}#${revision}`;
+    const floating = `git+https://git.corbet.ch/corbet-foss/csgn?${query}#${revision}`;
     assert.throws(() => checkPins(graph(pkg('csgn', floating))), /revision pin/);
   }
 });
@@ -36,10 +36,10 @@ test('reject a resolved revision different from its pin', () => {
 });
 
 test('accept main declarations with a unique complete resolution', () => {
-  const dependency = { source: 'git+https://github.com/corbet-foss/cpns?branch=main' };
+  const dependency = { source: 'git+https://git.corbet.ch/corbet-foss/cpns?branch=main' };
   checkPins(graph(
     pkg('cgrd', source('cgrd'), [dependency]),
-    pkg('cpns', `git+https://github.com/corbet-foss/cpns?branch=main#${revision}`),
+    pkg('cpns', `git+https://git.corbet.ch/corbet-foss/cpns?branch=main#${revision}`),
   ));
 });
 
