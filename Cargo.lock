@@ -708,7 +708,7 @@ dependencies = [
 [[package]]
 name = "cbcn"
 version = "0.1.0"
-source = "git+https://github.com/corbet-foss/cbcn?branch=main#6fb7f412905bf3164b192f693626d6febfa45b4e"
+source = "git+https://github.com/corbet-foss/cbcn?branch=main#4cfe078f6d5f3c237df06b09773a9c277c28f1e8"
 dependencies = [
  "csgn",
  "serde",
@@ -718,7 +718,7 @@ dependencies = [
 [[package]]
 name = "cblc"
 version = "0.0.0"
-source = "git+https://github.com/corbet-libs/cblc?branch=main#f54dcc9d176ebf37092be7862ea05dffd821489a"
+source = "git+https://github.com/corbet-libs/cblc?branch=main#0f50e0c9bae93af10cf06118ea63b1e0c969c891"
 dependencies = [
  "cpns",
  "crlt",
@@ -770,7 +770,7 @@ checksum = "f079e83a288787bcd14a6aea84cee5c87a67c5a3e660c30f557a3d24761b3527"
 [[package]]
 name = "cgbl"
 version = "0.0.0"
-source = "git+https://git.corbet.ch/corbet-libs/cgbl.git?rev=6e99d662f5620d69362ae4b17a3bd17293289dc6#6e99d662f5620d69362ae4b17a3bd17293289dc6"
+source = "git+https://git.corbet.ch/corbet-libs/cgbl.git?rev=e45702344c394b34f6a286588b5bea37f1aea30e#e45702344c394b34f6a286588b5bea37f1aea30e"
 dependencies = [
  "cbcn",
  "cpsd",
@@ -787,7 +787,7 @@ dependencies = [
 [[package]]
 name = "cgrd"
 version = "0.0.0"
-source = "git+https://github.com/corbet-foss/cgrd?branch=main#540db6bb67af34d4eae99fc3d05c3d3af1943ed8"
+source = "git+https://github.com/corbet-foss/cgrd?branch=main#ef20f05ecf767d5a3fa8313379d6ccc0ca2abe2b"
 dependencies = [
  "bigdecimal",
  "cpns",
@@ -807,7 +807,7 @@ dependencies = [
 [[package]]
 name = "cgts"
 version = "0.0.0"
-source = "git+https://github.com/corbet-libs/cgts?branch=main#f5eb6b44cd0171af57bcd066f5f60e49eeeb0799"
+source = "git+https://github.com/corbet-libs/cgts?branch=main#dc24ba6f44764ac96884e4f7b67923a29be16fbe"
 dependencies = [
  "cblc",
  "cgrd",
@@ -910,7 +910,7 @@ dependencies = [
 [[package]]
 name = "ckyh"
 version = "0.0.0"
-source = "git+https://github.com/corbet-foss/ckyh?branch=main#92cffd61743165a753a66211963ebb6e607e2ddd"
+source = "git+https://github.com/corbet-foss/ckyh?branch=main#9c173a6a48894a8950052396df982857004e7497"
 dependencies = [
  "crlt",
  "serde",
@@ -936,7 +936,7 @@ dependencies = [
 [[package]]
 name = "clbs"
 version = "0.0.0"
-source = "git+https://github.com/corbet-foss/clbs?branch=main#40ff96709532a6355d3026a0f81e4f226f3b9c59"
+source = "git+https://github.com/corbet-foss/clbs?branch=main#aff923a3a3e7d858711878004d9417ac9271086c"
 dependencies = [
  "crlt",
  "serde",
@@ -956,7 +956,7 @@ dependencies = [
 [[package]]
 name = "cmbr"
 version = "0.0.0"
-source = "git+https://github.com/corbet-libs/cmbr?branch=main#18304eb0cc9f38771abc6d23a3b3c0ef34f1e503"
+source = "git+https://github.com/corbet-libs/cmbr?branch=main#53a76fe24257edee0c6568a33a76d277e2f12c19"
 dependencies = [
  "cgrd",
  "cgts",
@@ -1014,7 +1014,7 @@ dependencies = [
 [[package]]
 name = "cnrl"
 version = "0.0.0"
-source = "git+https://github.com/corbet-foss/cnrl?branch=main#2ee949be3017822d977102c8e1f6ad555c643ad2"
+source = "git+https://github.com/corbet-foss/cnrl?branch=main#63afbfc3c0bee2de1183aded27b6fb2984e1a9a6"
 dependencies = [
  "chrono",
  "ckyh",
@@ -1122,7 +1122,7 @@ dependencies = [
 [[package]]
 name = "cplc"
 version = "0.0.0"
-source = "git+https://github.com/corbet-libs/cplc?branch=main#52552fea6209838481d2576384a28888d02ba10c"
+source = "git+https://github.com/corbet-libs/cplc?branch=main#055b2578de9523831d4f0661898c16ed1e927079"
 dependencies = [
  "cbcn",
  "cgts",
@@ -1139,7 +1139,7 @@ dependencies = [
 [[package]]
 name = "cpns"
 version = "0.0.0"
-source = "git+https://github.com/corbet-foss/cpns?branch=main#85674ab2e70f11051ba30ab44a8c7d3301ac6ec1"
+source = "git+https://github.com/corbet-foss/cpns?branch=main#eb041a636b4675570af9617d6b59978f50cd82fb"
 dependencies = [
  "crlt",
  "getrandom 0.4.3",
@@ -1151,7 +1151,7 @@ dependencies = [
 [[package]]
 name = "cpsd"
 version = "0.0.0"
-source = "git+https://github.com/corbet-foss/cpsd?branch=main#d049fd40f8105f634472feb2595db317e997f7e3"
+source = "git+https://github.com/corbet-foss/cpsd?branch=main#fdca130fc6a130ce0cb3f91506c4025cd4032442"
 dependencies = [
  "ark-bls12-381",
  "ark-ec",
@@ -1282,7 +1282,7 @@ checksum = "56b08621c00321efcfa3eee6a3179adc009e21ea8d24ca7adc3c326184bc3f48"
 [[package]]
 name = "crbk"
 version = "0.0.0"
-source = "git+https://github.com/corbet-foss/crbk?branch=main#ee4f73334818e2053c7df3d123a8e3b8cc23b2cf"
+source = "git+https://github.com/corbet-foss/crbk?branch=main#5a458f97bf7310811cb71d1be86d84d26ec69500"
 dependencies = [
  "crlt",
  "serde",
@@ -1302,7 +1302,7 @@ dependencies = [
 [[package]]
 name = "crgs"
 version = "0.0.0"
-source = "git+https://github.com/corbet-foss/crgs?branch=main#fd15ceff1ab8fa8f9ec57024ab53f3698887e367"
+source = "git+https://github.com/corbet-foss/crgs?branch=main#99f693f3c1d4899ec7b20b3e429e57f04f9155e4"
 dependencies = [
  "chrono",
  "crlt",
@@ -1315,7 +1315,7 @@ dependencies = [
 [[package]]
 name = "crlt"
 version = "0.0.0"
-source = "git+https://github.com/corbet-foss/crlt?branch=main#6ca3bd1035fcf17c2c88cdae3ed913da49740252"
+source = "git+https://github.com/corbet-foss/crlt?branch=main#35477c5bb76596eaa5ababac04b05baaa8d05bb9"
 dependencies = [
  "deadpool",
  "libsql",
@@ -1402,7 +1402,7 @@ dependencies = [
 [[package]]
 name = "csgn"
 version = "0.0.0"
-source = "git+https://github.com/corbet-foss/csgn?branch=main#eac891b771152b17aa3a903edfe9c129e43a371e"
+source = "git+https://github.com/corbet-foss/csgn?branch=main#f11c37e903d7f533fc546a2dc87b9f9310bee283"
 dependencies = [
  "ciborium-ll",
  "coset",
@@ -1416,7 +1416,7 @@ dependencies = [
 [[package]]
 name = "cshm"
 version = "0.0.0"
-source = "git+https://github.com/corbet-foss/cshm?branch=main#9fe8a3271ddecf0846d888d038645a55687c2111"
+source = "git+https://github.com/corbet-foss/cshm?branch=main#9c66f454d447483e8f7f93780a8e1948bbecfa89"
 dependencies = [
  "bigdecimal",
  "jsonschema",
@@ -1428,7 +1428,7 @@ dependencies = [
 [[package]]
 name = "cssr"
 version = "0.0.0"
-source = "git+https://github.com/corbet-foss/cssr?branch=main#a681cb0c84c25119d83ce9fc0194a115f2a17f59"
+source = "git+https://github.com/corbet-foss/cssr?branch=main#836f4c612a05d2d866b9dcfad464bbbd114c6ae7"
 dependencies = [
  "crlt",
  "p256",
@@ -1439,7 +1439,7 @@ dependencies = [
 [[package]]
 name = "cthl"
 version = "0.0.0"
-source = "git+https://github.com/corbet-foss/cthl?branch=main#e719761a51795a115a969f50353df27f8c152bfd"
+source = "git+https://github.com/corbet-foss/cthl?branch=main#c566ed912a1f03d03acf61c917a10d559b438848"
 dependencies = [
  "governor",
 ]
@@ -1499,7 +1499,7 @@ dependencies = [
 [[package]]
 name = "cvch"
 version = "0.2.1"
-source = "git+https://github.com/corbet-foss/cvch?branch=main#37ee0cba6c8be767c8e8ecd286ec225a21b564e1"
+source = "git+https://github.com/corbet-foss/cvch?branch=main#114b452e1016fb7f8e9cb0044168f61929b7c79b"
 dependencies = [
  "ed25519-dalek 2.2.0",
  "serde",
@@ -1511,7 +1511,7 @@ dependencies = [
 [[package]]
 name = "cvfy"
 version = "0.0.0"
-source = "git+https://github.com/corbet-foss/cvfy?branch=main#3445fce1552b534b98871c027b2d3e19cd064386"
+source = "git+https://github.com/corbet-foss/cvfy?branch=main#642e78a3e46eb2dc9beccc724453201e079e0908"
 dependencies = [
  "czkp",
  "data-encoding",
@@ -1522,7 +1522,7 @@ dependencies = [
 [[package]]
 name = "czkp"
 version = "0.0.0"
-source = "git+https://github.com/corbet-foss/czkp?branch=main#976435f44c6e387f76387c945bd39c0122f6c650"
+source = "git+https://github.com/corbet-foss/czkp?branch=main#479ca24bb279e38fc1d80ec693ecd4de91f2214a"
 dependencies = [
  "data-encoding",
  "ed25519-dalek 2.2.0",
