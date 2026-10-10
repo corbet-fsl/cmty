@@ -1,4 +1,6 @@
 use chrono::{DateTime, Datelike};
+
+mod certificate;
 use cpsd::{
     ChallengeStore, CommunityId, IssuerPublicKey, Presentation, PresentationRequest, Verifier,
     rand::{CryptoRng, RngCore},
@@ -476,8 +478,9 @@ where
         Ok(Outcome::Issued(Box::new(IssuedCredential { claims, cose })))
     }
 
-    /// Publish a conservative community epoch advance before acknowledging each
-    /// membership event. A crash may repeat the advance, never lose revocation.
+    /// Retain revoked passkey IDs and publish a conservative community epoch
+    /// advance before acknowledging each membership event. A crash may repeat
+    /// the advance, never lose revocation or remove an existing revoked ID.
     /// Call after passkey revocation/maintenance; `begin` also drains this outbox.
     pub async fn flush_revocations(&self, now: u64) -> Result<usize> {
         check_time(now)?;
@@ -488,7 +491,19 @@ where
             .await
             .map_err(member_error)?;
         if !events.is_empty() {
-            policy.bump_epoch().await.map_err(policy_error)?;
+            let mut revocations = policy.revocations().map_err(policy_error)?.clone();
+            for event in &events {
+                revocations.passkeys.extend(
+                    self.membership
+                        .revoked_passkeys(event)
+                        .await
+                        .map_err(member_error)?,
+                );
+            }
+            policy
+                .set_revocations(revocations)
+                .await
+                .map_err(policy_error)?;
             policy
                 .publish(cplc::SnapshotKind::Settings, now)
                 .await
