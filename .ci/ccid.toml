@@ -16,7 +16,7 @@ commands = [["cargo", "deny", "--locked", "check", "advisories"]]
 kind = "commands"
 commands = [["bash", ".ci/resolve-dependencies.sh"]]
 cache = false
-cache_outputs = ["Cargo.lock"]
+cache_outputs = ["Cargo.lock", "dependency-metadata.json"]
 
 [render]
 tool_revision = "e38f347d6941aa105ac4b55a0d4b8fec2ef22433"

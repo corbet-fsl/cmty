@@ -32,14 +32,14 @@ per-member/CAS failure handling. No credential, login history or raw gate data
 is stored here.
 
 Append cmbr's complete schema set plus cgts, crbk, cplc, csgn and cmty's cpsd
-challenge schema once to the shared migration history. Every dependency is pinned
-by full revision and CI rejects a second Corbet revision in the resolved lock.
+challenge schema once to the shared migration history. `Cargo.lock` retains each
+resolved dependency revision; CI rejects a second Corbet revision in that graph.
 
 ## Dependency survey
 
-Rechecked GitHub main manifests/APIs and crates.io documentation on 2026-09-30
-before the recomposition. Every direct cvld dependency is pinned by full revision
-in `Cargo.toml`.
+Rechecked upstream manifests/APIs and crates.io documentation on 2026-09-30
+before the recomposition. Compatible ranges and first-party main branches are
+declared in `Cargo.toml`; exact resolved revisions are retained in `Cargo.lock`.
 
 | Candidate | Choice and reason |
 |---|---|
@@ -57,7 +57,7 @@ their LGPL linking exception. No GPL/AGPL-only dependency is added.
 
 ## Validation and current limits
 
-GitHub Actions runs formatting, Clippy, real integration tests and dependency
+CI runs formatting, Clippy, real integration tests and dependency
 checks. Cargo is never run on the workstation. Tests cover BBS, WebAuthn, pins,
 probation, expiry, replay, policy changes, revocations, suspension and restart.
 Optional Turso tests require both `TURSO_URL` and `TURSO_TOKEN` for an explicitly
