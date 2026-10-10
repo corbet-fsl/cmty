@@ -1853,7 +1853,7 @@ async fn finish_vetoes_gate_check_after_transient_legal_record() {
                     .to_bytes()
                     .to_vec();
                 clbs::Gate::new(
-                    clbs::LibsqlStore::new(&db, "example").unwrap(),
+                    cgts::legal_storage::LibsqlStore::new(&db, "example").unwrap(),
                     Authority,
                     clock,
                 )

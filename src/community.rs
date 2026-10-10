@@ -810,7 +810,7 @@ mod tests {
         Authority,
         Clock,
         cgts::LibsqlStore,
-        cgts::LegalGate<clbs::LibsqlStore, Authority>,
+        cgts::LegalGate<cgts::legal_storage::LibsqlStore, Authority>,
         crate::adapters::SharedRulebook<crbk::LibsqlStore>,
         cplc::LibsqlStore,
         csgn::LibsqlStore,
@@ -1016,7 +1016,7 @@ mod tests {
                 gates: cgts::Gatekeeper::new(
                     cgts::LibsqlStore::new(&db, "example").unwrap(),
                     cgts::LegalGate::new(
-                        clbs::LibsqlStore::new(&db, "example").unwrap(),
+                        cgts::legal_storage::LibsqlStore::new(&db, "example").unwrap(),
                         Authority,
                     ),
                 )

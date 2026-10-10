@@ -47,3 +47,10 @@ test('require the crlt Git dependency', () => {
   assert.throws(() => checkPins({ packages: [pkg('crbk')] }), /Missing/);
   assert.throws(() => checkPins({ packages: [pkg('crbk'), pkg('crlt')] }), /unpinned/);
 });
+
+// Canonical and historical URLs are both first-party identities.
+test('canonical sources retain the revision and duplicate checks', () => {
+  const canonical = source('crlt').replace('github.com', 'git.corbet.ch');
+  checkPins({ packages: [pkg('crlt', canonical)] });
+  assert.throws(() => checkPins({ packages: [pkg('crlt', canonical), pkg('crlt', source('crlt'))] }), /duplicated/);
+});

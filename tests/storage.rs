@@ -107,6 +107,7 @@ async fn namespaces_reopen_capacity_and_missing_schema_fail_closed() {
 }
 
 #[tokio::test]
+#[ignore = "requires explicit authorized live-service execution"]
 async fn optional_real_turso() {
     let credentials = std::env::var("TURSO_URL")
         .ok()

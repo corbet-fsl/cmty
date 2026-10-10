@@ -87,7 +87,10 @@ impl cgts::Gate for DevelopmentGate {
 }
 
 type Members = cmbr::Membership<cmbr::LibsqlStorage, Authority, Clock>;
-type Gates = cgts::Gatekeeper<cgts::LibsqlStore, cgts::LegalGate<clbs::LibsqlStore, Authority>>;
+type Gates = cgts::Gatekeeper<
+    cgts::LibsqlStore,
+    cgts::LegalGate<cgts::legal_storage::LibsqlStore, Authority>,
+>;
 type Rules = SharedRulebook<crbk::LibsqlStore>;
 type Policies = cplc::Policy<Rules, cplc::LibsqlStore, csgn::LibsqlStore>;
 pub type Engine<S> = Community<
@@ -96,7 +99,7 @@ pub type Engine<S> = Community<
     Authority,
     Clock,
     cgts::LibsqlStore,
-    cgts::LegalGate<clbs::LibsqlStore, Authority>,
+    cgts::LegalGate<cgts::legal_storage::LibsqlStore, Authority>,
     Rules,
     cplc::LibsqlStore,
     csgn::LibsqlStore,
@@ -158,7 +161,10 @@ pub fn members(db: &crlt::Db, clock: Clock) -> Members {
 pub fn gates(db: &crlt::Db) -> Gates {
     cgts::Gatekeeper::new(
         cgts::LibsqlStore::new(db, "example").unwrap(),
-        cgts::LegalGate::new(clbs::LibsqlStore::new(db, "example").unwrap(), Authority),
+        cgts::LegalGate::new(
+            cgts::legal_storage::LibsqlStore::new(db, "example").unwrap(),
+            Authority,
+        ),
     )
     .unwrap()
 }
@@ -557,7 +563,7 @@ impl<S: Storage> Fixture<S> {
             .to_bytes()
             .to_vec();
         clbs::Gate::new(
-            clbs::LibsqlStore::new(&self.db, "example").unwrap(),
+            cgts::legal_storage::LibsqlStore::new(&self.db, "example").unwrap(),
             Authority,
             self.clock.clone(),
         )

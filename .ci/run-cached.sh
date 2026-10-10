@@ -56,6 +56,8 @@ cargo_bin=$("$CARGO_HOME/bin/rustup" which --toolchain stable cargo)
 test -x "$cargo_bin"
 export PATH="$(dirname "$cargo_bin"):$PATH"
 export CCID_SOURCE_REVISION="$CI_COMMIT_SHA"
+export ARTIFACT_ROOT="${ARTIFACT_ROOT:-$state/release-artifacts}"
+mkdir -p "$ARTIFACT_ROOT"
 "$CCID_BIN" render --repo "$PWD" --check
 proto --version
 moon --version

@@ -76,3 +76,7 @@ configuration deadline after the service verifies a fresh signed global status.
 It rejects expired deadlines and epoch rollback, serializes with issuance and
 invalidates challenges bound to the previous configuration. The service retains
 durable public revision/epoch floors and authorizes issuer-key installation.
+
+Live Turso probes are explicitly ignored by default. Credentials alone do not
+authorize network execution; an authorized operator must select the ignored test.
+Local real database and signature tests remain part of the normal CI suite.
