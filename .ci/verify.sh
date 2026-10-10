@@ -10,9 +10,6 @@ export CARGO_HTTP_USER_AGENT="${CARGO_HTTP_USER_AGENT:-dependency-ci}"
 export CARGO_NET_GIT_FETCH_WITH_CLI="${CARGO_NET_GIT_FETCH_WITH_CLI:-true}"
 
 rustc --version
-# Resolve dependency origin migration on CI and retain the exact candidate.
-cargo update
-cp Cargo.lock "$ARTIFACT_ROOT/Cargo.lock"
 echo "STAGE: fmt"
 cargo fmt --all --check
 echo "STAGE: pins-test"
