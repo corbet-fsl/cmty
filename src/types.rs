@@ -72,6 +72,10 @@ pub struct CredentialGate {
 pub struct CredentialClaims {
     /// Verified view version (1), not a field in the cplc wire payload.
     pub version: u8,
+    /// Exact issuer purpose parsed from the authenticated cplc payload.
+    pub purpose: cplc::CredentialPurpose,
+    /// Exact configured issuer action parsed from the authenticated payload.
+    pub issuance_action: String,
     /// Canonical community, never a mutable display name.
     pub community: String,
     /// Community pseudonym; never a global holder identifier.
@@ -108,6 +112,8 @@ impl CredentialClaims {
     /// The canonical cplc JSON payload, excluding authenticated COSE headers.
     pub fn payload(&self) -> crate::Result<cplc::Credential> {
         Ok(cplc::Credential {
+            purpose: self.purpose,
+            issuance_action: self.issuance_action.clone(),
             community: self.community.clone(),
             member: self.member_id.clone(),
             handle: self.handle.clone(),
@@ -197,6 +203,8 @@ mod tests {
     fn credential_payload_rejects_overflow_schema_version() {
         let claims = CredentialClaims {
             version: 1,
+            purpose: cplc::CredentialPurpose::CommunityAdmission,
+            issuance_action: ADMISSION_ACTION.into(),
             community: "example".into(),
             member_id: "member".into(),
             handle: "handle".into(),
@@ -216,6 +224,8 @@ mod tests {
     fn credential_payload_roundtrips_valid_claims() {
         let claims = CredentialClaims {
             version: 1,
+            purpose: cplc::CredentialPurpose::CommunityAdmission,
+            issuance_action: "example.issuer-action".into(),
             community: "example".into(),
             member_id: "member".into(),
             handle: "handle".into(),
@@ -229,7 +239,15 @@ mod tests {
             key_id: Vec::new(),
         };
         let payload = claims.payload().unwrap();
+        assert_eq!(payload.purpose, claims.purpose);
+        assert_eq!(payload.issuance_action, "example.issuer-action");
         assert_eq!(payload.community, "example");
         assert_eq!(payload.schema_version, 3);
+        // An older claims view cannot acquire an issuer assertion by default.
+        for required in ["purpose", "issuance_action"] {
+            let mut legacy = serde_json::to_value(&claims).unwrap();
+            legacy.as_object_mut().unwrap().remove(required);
+            assert!(serde_json::from_value::<CredentialClaims>(legacy).is_err());
+        }
     }
 }

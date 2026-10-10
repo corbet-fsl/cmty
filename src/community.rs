@@ -452,6 +452,8 @@ where
             serde_json::from_slice(verified.payload()).map_err(signing_error)?;
         let claims = CredentialClaims {
             version: 1,
+            purpose: payload.purpose,
+            issuance_action: payload.issuance_action,
             community: payload.community,
             member_id: payload.member,
             handle: payload.handle,

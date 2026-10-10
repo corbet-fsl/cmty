@@ -87,10 +87,18 @@ async fn real_passport_passkey_enrolment_gates_policy_pins_and_cose_roundtrip() 
         .signing_keys
         .verify(&result.cose, csgn::Kind::Credential, NOW)
         .unwrap();
+    let signed_payload: cplc::Credential = serde_json::from_slice(verified.payload()).unwrap();
     assert_eq!(
-        serde_json::from_slice::<cplc::Credential>(verified.payload()).unwrap(),
-        result.claims.payload().unwrap()
+        signed_payload.purpose,
+        cplc::CredentialPurpose::CommunityAdmission
     );
+    assert_eq!(signed_payload.issuance_action, ADMISSION_ACTION);
+    assert_eq!(result.claims.purpose, signed_payload.purpose);
+    assert_eq!(
+        result.claims.issuance_action,
+        signed_payload.issuance_action
+    );
+    assert_eq!(signed_payload, result.claims.payload().unwrap());
     assert_eq!(result.claims.policy_epoch, snapshot.rules.policy_epoch);
     assert!(
         snapshot
