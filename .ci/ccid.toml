@@ -12,11 +12,24 @@ cache_outputs = ["coverage.json", "coverage.lcov", "coverage.txt", "dependency-m
 kind = "commands"
 commands = [["cargo", "deny", "--locked", "check", "advisories"]]
 
+[checks.resolve-dependencies]
+kind = "commands"
+commands = [["bash", ".ci/resolve-dependencies.sh"]]
+cache = false
+cache_outputs = ["Cargo.lock"]
+
 [render]
 tool_revision = "e38f347d6941aa105ac4b55a0d4b8fec2ef22433"
 
 [jobs.verify]
 scheduler = "crow"
 checks = ["verify", "advisories"]
+workflow = "repository-jobs"
+command = ["bash", ".ci/run-cached.sh"]
+
+# Retain the reviewed integration graph before a separate locked verification.
+[jobs.resolve-dependencies]
+scheduler = "crow"
+checks = ["resolve-dependencies"]
 workflow = "repository-jobs"
 command = ["bash", ".ci/run-cached.sh"]

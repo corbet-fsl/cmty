@@ -21,9 +21,7 @@ def check_lock(packages):
         query = parse_qs(source.query, keep_blank_values=True)
         if not SHA.fullmatch(source.fragment):
             raise ValueError(f'Missing resolved revision for {name}')
-        # An upstream not yet migrated may still select an immutable revision.
-        # Its local owner must migrate it; it cannot introduce a second copy here.
-        if query != {'branch': ['main']} and query != {'rev': [source.fragment]}:
+        if query != {'branch': ['main']}:
             raise ValueError(f'Invalid first-party source selector for {name}')
 
 
@@ -47,13 +45,12 @@ def rejects(function, value):
     raise AssertionError(f'Invalid input accepted: {value!r}')
 
 
-def self_test():
-    repo = 'https://github.com/corbet-foss/example'
+def self_test_for(repo):
     source = 'git+' + repo + '?branch=main#' + 'a' * 40
     package = {'name': 'example', 'source': source}
     check_lock([package])
     check_lock([{'name': 'local'}])
-    check_lock([dict(package, source='git+' + repo + '?rev=' + 'a' * 40 + '#' + 'a' * 40)])
+    rejects(check_lock, [dict(package, source='git+' + repo + '?rev=' + 'a' * 40 + '#' + 'a' * 40)])
     for packages in ([package, package], [package, {'name': 'example'}],
                      [package, dict(package, source=source[:-1] + 'b')],
                      [dict(package, source=source.replace('main', 'develop'))],
@@ -68,6 +65,12 @@ def self_test():
                         {'git': repo, 'branch': 'main', 'tag': 'v1'}):
         rejects(check_manifest, {'target': {'cfg(wasm)': {'dependencies': {'alias': declaration}}}})
     check_manifest({'workspace': {'dependencies': {'alias': {'git': repo, 'package': 'example', 'branch': 'main'}}}})
+
+
+def self_test():
+    for domain in ('git.corbet.ch', 'github.com'):
+        for organization in ('corbet-foss', 'corbet-libs', 'cmtymeet'):
+            self_test_for(f'https://{domain}/{organization}/example')
 
 
 if __name__ == '__main__':

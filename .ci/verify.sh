@@ -9,6 +9,8 @@ export CARGO_TERM_COLOR="${CARGO_TERM_COLOR:-always}"
 export CARGO_HTTP_USER_AGENT="${CARGO_HTTP_USER_AGENT:-dependency-ci}"
 export CARGO_NET_GIT_FETCH_WITH_CLI="${CARGO_NET_GIT_FETCH_WITH_CLI:-true}"
 
+python3 -B .ci/test-resolve-dependencies.py
+
 rustc --version
 echo "STAGE: fmt"
 cargo fmt --all --check
