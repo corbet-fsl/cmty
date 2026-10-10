@@ -2,7 +2,7 @@
 name = "cmty"
 version = "0.0.0"
 edition = "2024"
-rust-version = "1.88"
+rust-version = "1.95"
 description = "Community facade of cvld: membership, gatekeeping and policy per community"
 license = "FSL-1.1-ALv2"
 repository = "https://git.corbet.ch/corbet-libs/cmty"
