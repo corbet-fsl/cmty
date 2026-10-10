@@ -136,10 +136,15 @@ jobs:
     - name: Export source counters from the same execution
       run: cargo llvm-cov report --locked --branch --ignore-filename-regex '(/tests/|/tests\.rs$)' --lcov
         --output-path coverage.lcov
+    - name: Export independent annotated source inventory
+      run: cargo llvm-cov report --locked --branch --ignore-filename-regex '(/tests/|/tests\.rs$)' --text
+        --output-path coverage.txt
     - name: Require every emitted source line and branch
       run: 'python3 .github/check-coverage.py coverage.json || true
 
-        python3 .github/check-source-coverage.py coverage.lcov coverage.json'
+        python3 -B .github/test-source-coverage.py
+
+        python3 .github/check-source-coverage.py coverage.lcov coverage.json coverage.txt'
     - uses: actions/upload-artifact@v7
       if: always()
       with:
@@ -147,6 +152,8 @@ jobs:
         path: 'coverage.lcov
 
           coverage.json
+
+          coverage.txt
 
           Cargo.lock
 

@@ -25,6 +25,9 @@ cargo metadata --locked --format-version 1 | python3 -c 'import json,sys; d=json
 echo "STAGE: test"
 cargo test --locked
 
+echo "STAGE: coverage-checker-tests"
+python3 -B .github/test-source-coverage.py
+
 echo "STAGE: first-party"
 python3 .github/check-first-party.py
 
@@ -52,9 +55,12 @@ echo "STAGE: llvm-cov-json"
 "$NIGHTLY_CARGO" llvm-cov --locked --workspace --all-features --branch --no-cfg-coverage --no-cfg-coverage-nightly --ignore-filename-regex '(/tests/|/tests\.rs$)' --json --output-path coverage.json
 echo "STAGE: llvm-cov-lcov"
 "$NIGHTLY_CARGO" llvm-cov report --locked --branch --ignore-filename-regex '(/tests/|/tests\.rs$)' --lcov --output-path coverage.lcov
+echo "STAGE: llvm-cov-text"
+"$NIGHTLY_CARGO" llvm-cov report --locked --branch --ignore-filename-regex '(/tests/|/tests\.rs$)' --text --output-path coverage.txt
 )
 echo "STAGE: coverage-soft"
 python3 .github/check-coverage.py coverage.json || true
 echo "STAGE: coverage-gate"
-python3 .github/check-source-coverage.py coverage.lcov coverage.json
+cp coverage.json coverage.lcov coverage.txt "$ARTIFACT_ROOT/"
+python3 .github/check-source-coverage.py coverage.lcov coverage.json coverage.txt
 echo "STAGE: done"

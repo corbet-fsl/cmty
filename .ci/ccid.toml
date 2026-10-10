@@ -6,7 +6,7 @@ kind = "commands"
 commands = [["bash", ".ci/verify.sh"]]
 cache_tools = [["rustc", "-vV"], ["cargo", "--version"], ["rustup", "run", "nightly", "rustc", "-vV"], ["rustup", "run", "nightly", "cargo", "llvm-cov", "--version"], ["node", "--version"], ["python3", "--version"], ["pkg-config", "--version"], ["openssl", "version"]]
 cache_env = ["PKG_CONFIG_PATH", "NIX_CFLAGS_COMPILE", "NIX_LDFLAGS", "LD_LIBRARY_PATH"]
-cache_outputs = ["coverage.json", "coverage.lcov", "dependency-metadata.json", "dependency-licenses.json"]
+cache_outputs = ["coverage.json", "coverage.lcov", "coverage.txt", "dependency-metadata.json", "dependency-licenses.json"]
 
 [checks.advisories]
 kind = "commands"
