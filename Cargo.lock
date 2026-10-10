@@ -1150,7 +1150,7 @@ dependencies = [
 [[package]]
 name = "cpmt"
 version = "0.2.0"
-source = "git+https://git.corbet.ch/corbet-foss/cpmt?branch=main#31d83656833e984ad66a63262f6d905887ce358c"
+source = "git+https://git.corbet.ch/corbet-foss/cpmt?branch=main#eb017c8d306c6892bb8359092a658b8153f87091"
 dependencies = [
  "cfbk",
  "ed25519-dalek 3.0.0",
