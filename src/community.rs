@@ -1,6 +1,7 @@
 use chrono::{DateTime, Datelike};
 
 mod certificate;
+pub use certificate::PasskeyCertificate;
 use cpsd::{
     ChallengeStore, CommunityId, IssuerPublicKey, Presentation, PresentationRequest, Verifier,
     rand::{CryptoRng, RngCore},

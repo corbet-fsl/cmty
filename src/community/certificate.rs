@@ -1,6 +1,28 @@
 //! Original certificate owner composition with Policy-first lease ordering.
 use super::*;
 
+/// Original signed bytes and the actual completed membership check observation.
+/// This result records one completed operation; it retains no live owner lease.
+#[must_use]
+pub struct PasskeyCertificate {
+    bytes: Vec<u8>,
+    checked_at: u64,
+}
+impl PasskeyCertificate {
+    /// Original COSE bytes, unchanged by this ephemeral completion result.
+    pub fn bytes(&self) -> &[u8] {
+        &self.bytes
+    }
+    /// Actual completion time of the retained original membership check.
+    pub fn checked_at(&self) -> u64 {
+        self.checked_at
+    }
+    /// Consume the result after carrying its completion floor to the next check.
+    pub fn into_bytes(self) -> Vec<u8> {
+        self.bytes
+    }
+}
+
 impl<S, M, L, C, G, A, R, P, K> Community<S, M, L, C, G, A, R, P, K>
 where
     S: Storage,
@@ -19,7 +41,7 @@ where
         &self,
         authentication: &ckyh::Authentication,
         now: u64,
-    ) -> Result<Vec<u8>> {
+    ) -> Result<PasskeyCertificate> {
         let mut policy = self.policy.lock().await;
         let mut registered = self
             .membership
@@ -43,6 +65,9 @@ where
             .map_err(policy_error)?
             .verify(&certificate, csgn::Kind::Credential, completed)
             .map_err(policy_error)?;
-        Ok(certificate)
+        Ok(PasskeyCertificate {
+            bytes: certificate,
+            checked_at: completed,
+        })
     }
 }

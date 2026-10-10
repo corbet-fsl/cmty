@@ -9,7 +9,9 @@ mod community;
 pub mod storage;
 mod types;
 
-pub use community::{Admission, Challenge, Community, Config, Parts, VerifiedPassport};
+pub use community::{
+    Admission, Challenge, Community, Config, Parts, PasskeyCertificate, VerifiedPassport,
+};
 pub use types::*;
 /// Exact protocol types of the composed facades.
 pub use {cgts, cmbr, cplc};
