@@ -5,6 +5,8 @@
 mod cuts;
 #[path = "root_issuance/fixture.rs"]
 mod fixture;
+#[path = "root_issuance/legal.rs"]
+mod legal;
 mod support;
 
 use cmty::*;

@@ -57,6 +57,10 @@ where
             .await
             .map_err(member_error)?;
         source_role(&lease, &self.community)?;
+        self.membership
+            .check_role_action(&mut lease, "root_board_issue_begin")
+            .await
+            .map_err(member_error)?;
         let now = time.observe()?;
         if !lease.is_current(now) {
             return Err(Error::Time);
@@ -106,7 +110,7 @@ where
         // response expires anonymously; no retry API can re-register its nonce.
         cpsd::register_root_board_issuance(&issuer.store, &context).await?;
         self.membership
-            .check_role(&mut lease)
+            .check_role_action(&mut lease, "root_board_issue_begin")
             .await
             .map_err(member_error)?;
         let checked_at = time.release(&lease, &context)?;

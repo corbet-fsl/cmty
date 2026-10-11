@@ -66,7 +66,7 @@ where
         // key/legal writers cannot change the final authority bundle mid-sign.
         let answer = self
             .membership
-            .with_current_role(&mut lease, |checked_at| {
+            .with_current_role_action(&mut lease, "root_board_issue_finish", |checked_at| {
                 let direct = time.observe().map_err(|_| cmbr::Error::Transition)?;
                 if direct != checked_at || direct < now || direct > challenge.context.deadline() {
                     return Err(cmbr::Error::Transition);
