@@ -305,3 +305,16 @@ async fn trusted_waiting_tuning_refuses_without_the_same_account_owner() {
         Err(Error::Time)
     ));
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn actual_policy_ring_cannot_substitute_a_missing_native_owner() {
+    let f = fixture(EXPIRY, EXPIRY).await;
+    assert!(matches!(
+        f.engine.reconcile_account_admission_keys(|| NOW).await,
+        Err(Error::AccountUnavailable)
+    ));
+    assert!(matches!(
+        f.engine.reconcile_account_admission_keys(|| 0).await,
+        Err(Error::Time)
+    ));
+}

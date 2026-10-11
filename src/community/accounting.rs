@@ -3,6 +3,7 @@ use super::*;
 use cgts::{AccountServiceRequest, AccountServiceResponse};
 mod lifecycle;
 mod pin_change;
+mod succession;
 pub use pin_change::PinChange;
 
 /// Admission requesting Policy's original account grant for one already
