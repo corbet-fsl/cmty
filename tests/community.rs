@@ -588,7 +588,7 @@ async fn policy_revocation_and_invalid_devices_never_return_credentials() {
         f.engine
             .finish(&mut rng, &challenge, &proof, admission, NOW)
             .await,
-        Err(Error::Signing)
+        Err(Error::Membership)
     ));
     assert!(matches!(
         f.finish(&challenge, &proof, NOW).await,
