@@ -42,7 +42,7 @@ CBLC_PROOF_DIRECTORY="$(python3 -B .ci/check-account-fixture.py \
   --record-manifest "$fixture_snapshot/record/manifest.json" \
   --output "$fixture_snapshot/account")"
 export CBLC_BB CBLC_PROOF_DIRECTORY
-cargo test --locked
+cargo test --locked --no-fail-fast
 
 echo "STAGE: coverage-checker-tests"
 python3 -B .github/test-source-coverage.py
