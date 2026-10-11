@@ -16,6 +16,8 @@ where
     /// Verify the same original passport and all configured gates, then redeem
     /// the exact original FounderAdmin voucher through Membership's one writer.
     /// The voucher grants no passport, gate, device or session authority.
+    // Mirrors `finish_with` plus the one entitlement; a wrapper type would hide it.
+    #[allow(clippy::too_many_arguments)]
     pub async fn finish_founder_admin_with<T: RngCore + CryptoRng>(
         &self,
         rng: &mut T,
@@ -39,6 +41,7 @@ where
 
     /// The same FounderAdmin admission with Policy's original native-account
     /// grant for one genuinely authorized device; no substitute grant is made.
+    #[allow(clippy::too_many_arguments)]
     pub async fn finish_founder_admin_account_with<T: RngCore + CryptoRng>(
         &self,
         rng: &mut T,
