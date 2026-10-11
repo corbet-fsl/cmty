@@ -23,7 +23,7 @@ where
         Self::new_selected(storage, issuer_keys, parts, config, true)
     }
 
-    async fn begin_selected<T: RngCore + CryptoRng>(
+    pub(super) async fn begin_selected<T: RngCore + CryptoRng>(
         &self,
         rng: &mut T,
         now: u64,
@@ -142,7 +142,7 @@ where
         })
     }
 
-    async fn passport_current(
+    pub(super) async fn passport_current(
         &self,
         passport: &VerifiedPassport,
         policy: &cplc::Policy<R, P, K>,
