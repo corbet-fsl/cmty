@@ -185,4 +185,26 @@ where
         self.finish_verified(passport, (admission, None), now, checks)
             .await
     }
+    /// Bind root account admission to the genuine joint proof and the same
+    /// configured native-account grant checks as ordinary account admission.
+    pub async fn finish_root_board_account_with(
+        &self,
+        challenge: &Challenge,
+        presentation: &cpsd::RootBoardPresentation,
+        admission: AccountAdmission<'_>,
+        now: u64,
+        checks: impl AsyncFnOnce(
+            &cgts::Gatekeeper<G, A>,
+            cgts::Context<'_>,
+        ) -> cgts::Result<Vec<cgts::CheckedGate>>,
+    ) -> Result<Outcome> {
+        let passport = self.verify_root_board(challenge, presentation, now).await?;
+        self.finish_verified(
+            passport,
+            (admission.membership, Some(admission.device)),
+            now,
+            checks,
+        )
+        .await
+    }
 }
