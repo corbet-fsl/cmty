@@ -1,7 +1,7 @@
 use chrono::{DateTime, Datelike};
 
 mod accounting;
-pub use accounting::AccountAdmission;
+pub use accounting::{AccountAdmission, AccountPublication};
 mod certificate;
 pub use certificate::PasskeyCertificate;
 use cpsd::{
@@ -444,115 +444,125 @@ where
             .admit(auth, &policy, &snapshot, &checked, admission.lease)
             .await
             .map_err(member_error)?;
-        let handle = self
-            .membership
-            .handle(auth)
-            .await
-            .map_err(member_error)?
-            .ok_or(Error::Membership)?;
-        let schema = policy
-            .schema()
-            .map_err(policy_error)?
-            .ok_or(Error::Policy)?;
-        let schema_version = schema.version;
-        let mut pins = Vec::new();
-        for field in schema.public.iter().chain(&schema.private) {
-            if field.change_preset == cplc::cshm::ChangePreset::Free {
-                continue;
-            }
-            if let Some(pin) = self
+        // Account issuance may fail after this real membership commit. Preserve
+        // ordinary issuance errors, but never imply account-flow rollback.
+        let result = async {
+            let handle = self
                 .membership
-                .get_pin(auth, &field.id)
+                .handle(auth)
                 .await
                 .map_err(member_error)?
-            {
-                pins.push(cplc::Pin {
-                    field: field.id.clone(),
-                    fingerprint: *pin.fingerprint.as_bytes(),
-                });
-            }
-        }
-        ensure_unchanged(&passport.policy, &self.snapshot_locked(&policy, now).await?)?;
-        // A cmbr commit can precede a signing failure. No bytes escape on failure;
-        // retries start with a new presentation and do not change member class.
-        let request = || cplc::CredentialRequest {
-            subject: crbk::Subject {
-                id: admitted.subject(),
-                membership: admitted.state().membership(),
-            },
-            handle: handle.display(),
-            schema_version,
-            snapshot: &snapshot,
-            gates: &checked,
-            pins: &pins,
-            devices: admission.devices,
-        };
-        let cose = policy
-            .issue(&self.membership, request(), now)
-            .await
-            .map_err(issuance_error)?;
-        let verified = policy
-            .key_ring()
-            .map_err(signing_error)?
-            .verify(&cose, csgn::Kind::Credential, now)
-            .map_err(signing_error)?;
-        let payload: cplc::Credential =
-            serde_json::from_slice(verified.payload()).map_err(signing_error)?;
-        let claims = CredentialClaims {
-            version: 1,
-            purpose: payload.purpose,
-            issuance_action: payload.issuance_action,
-            community: payload.community,
-            member_id: payload.member,
-            handle: payload.handle,
-            gates: payload
-                .gates
-                .into_iter()
-                .map(|gate| CredentialGate {
-                    gate: gate.gate,
-                    provider: gate.provider,
-                    valid_until: gate.valid_until,
-                })
-                .collect(),
-            pins: payload
-                .pins
-                .into_iter()
-                .map(|pin| (pin.field, pin.fingerprint))
-                .collect(),
-            devices: payload.devices,
-            schema_version: payload.schema_version.into(),
-            policy_epoch: payload.policy_epoch,
-            issued: verified.issued_at(),
-            valid_until: verified.valid_until(),
-            key_id: verified.key_id().as_bytes().to_vec(),
-        };
-        let account = match account_device {
-            Some(device) => Some(
-                policy
-                    .issue_account_grant(
-                        &self.membership,
-                        request(),
-                        device,
-                        cplc::AccountGrantContext {
-                            passport_policy_digest: passport.policy.passport.digest(),
-                            passport_valid_until: passport
-                                .policy
-                                .passport
-                                .valid_until
-                                .min(passport.policy.valid_until),
-                        },
-                        now,
-                    )
+                .ok_or(Error::Membership)?;
+            let schema = policy
+                .schema()
+                .map_err(policy_error)?
+                .ok_or(Error::Policy)?;
+            let schema_version = schema.version;
+            let mut pins = Vec::new();
+            for field in schema.public.iter().chain(&schema.private) {
+                if field.change_preset == cplc::cshm::ChangePreset::Free {
+                    continue;
+                }
+                if let Some(pin) = self
+                    .membership
+                    .get_pin(auth, &field.id)
                     .await
-                    .map_err(issuance_error)?,
-            ),
-            None => None,
-        };
-        Ok(Outcome::Issued(Box::new(IssuedCredential {
-            claims,
-            cose,
-            account,
-        })))
+                    .map_err(member_error)?
+                {
+                    pins.push(cplc::Pin {
+                        field: field.id.clone(),
+                        fingerprint: *pin.fingerprint.as_bytes(),
+                    });
+                }
+            }
+            ensure_unchanged(&passport.policy, &self.snapshot_locked(&policy, now).await?)?;
+            // A cmbr commit can precede a signing failure. No bytes escape on failure;
+            // retries start with a new presentation and do not change member class.
+            let request = || cplc::CredentialRequest {
+                subject: crbk::Subject {
+                    id: admitted.subject(),
+                    membership: admitted.state().membership(),
+                },
+                handle: handle.display(),
+                schema_version,
+                snapshot: &snapshot,
+                gates: &checked,
+                pins: &pins,
+                devices: admission.devices,
+            };
+            let cose = policy
+                .issue(&self.membership, request(), now)
+                .await
+                .map_err(issuance_error)?;
+            let verified = policy
+                .key_ring()
+                .map_err(signing_error)?
+                .verify(&cose, csgn::Kind::Credential, now)
+                .map_err(signing_error)?;
+            let payload: cplc::Credential =
+                serde_json::from_slice(verified.payload()).map_err(signing_error)?;
+            let claims = CredentialClaims {
+                version: 1,
+                purpose: payload.purpose,
+                issuance_action: payload.issuance_action,
+                community: payload.community,
+                member_id: payload.member,
+                handle: payload.handle,
+                gates: payload
+                    .gates
+                    .into_iter()
+                    .map(|gate| CredentialGate {
+                        gate: gate.gate,
+                        provider: gate.provider,
+                        valid_until: gate.valid_until,
+                    })
+                    .collect(),
+                pins: payload
+                    .pins
+                    .into_iter()
+                    .map(|pin| (pin.field, pin.fingerprint))
+                    .collect(),
+                devices: payload.devices,
+                schema_version: payload.schema_version.into(),
+                policy_epoch: payload.policy_epoch,
+                issued: verified.issued_at(),
+                valid_until: verified.valid_until(),
+                key_id: verified.key_id().as_bytes().to_vec(),
+            };
+            let account = match account_device {
+                Some(device) => Some(
+                    policy
+                        .issue_account_grant(
+                            &self.membership,
+                            request(),
+                            device,
+                            cplc::AccountGrantContext {
+                                passport_policy_digest: passport.policy.passport.digest(),
+                                passport_valid_until: passport
+                                    .policy
+                                    .passport
+                                    .valid_until
+                                    .min(passport.policy.valid_until),
+                            },
+                            now,
+                        )
+                        .await
+                        .map_err(issuance_error)?,
+                ),
+                None => None,
+            };
+            Ok(Outcome::Issued(Box::new(IssuedCredential {
+                claims,
+                cose,
+                account,
+            })))
+        }
+        .await;
+        if account_device.is_some() {
+            result.map_err(|_| Error::Reconcile)
+        } else {
+            result
+        }
     }
 
     /// Retain revoked passkey IDs and publish a conservative community epoch

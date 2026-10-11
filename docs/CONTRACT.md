@@ -172,3 +172,22 @@ Policy/member leases. The original worker retains those leases through native
 completion and caller cancellation. Missing service refuses, and an uncertain
 native/storage effect requires original Status reconciliation. No global gate
 facts, account payload history or alternate ledger are persisted by Community.
+
+
+The privileged `publish_account_record` wrapper retains the same owned Policy
+lease through the native worker reply, exact material publication and Beacon
+refresh. It projects the configured catalogue key through the actual Policy owner,
+checks the same settings/cohort/period/epoch after awaits, samples a live monotonic
+host clock and checks exclusive original deadlines before exposure. The native
+common object and material descriptor must agree. An error after a possibly
+committed native epoch is reported as reconciliation; no new ledger, invented
+descriptor, alternate signer or false success is substituted. This is not a member
+HTTP operation. A native owner/material/epoch must actually exist before success.
+
+
+Requested account-grant issuance reports reconciliation for any failure after
+actual Membership admission succeeded (including handle/schema/pin/signing or
+Balance/grant failure). The member commit is not rolled back and no grant bytes
+escape. Ordinary credential issuance and pre-admit errors keep their original
+behavior. Retrying uses the actual committed membership class; it never invents
+a no-effect outcome or resets the original member/ledger.

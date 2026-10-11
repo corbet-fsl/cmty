@@ -151,7 +151,7 @@ async fn real_passport_member_policy_and_device_project_the_same_bound_grant() {
     assert!(grant.expires_at <= issued.claims.valid_until);
     assert!(matches!(
         issue_account(&mut f, [99; 32]).await,
-        Err(Error::Signing)
+        Err(Error::Reconcile)
     ));
     let wire = signed_status(grant, &SigningKey::from_bytes(&[13; 32]));
     assert!(matches!(
@@ -189,11 +189,21 @@ async fn real_passport_member_policy_and_device_project_the_same_bound_grant() {
 #[tokio::test(flavor = "multi_thread")]
 async fn requested_account_flow_refuses_unconfigured_balance_without_fabricating_a_grant() {
     let mut f = fixture(EXPIRY, EXPIRY).await;
-    let _ = f.issue().await;
     assert!(matches!(
         issue_account(&mut f, DEVICES[0]).await,
-        Err(Error::Signing)
+        Err(Error::Reconcile)
     ));
+    // Missing Balance was discovered after successful actual admission. The
+    // original member row persists; no no-effect response is manufactured.
+    assert_eq!(
+        f.engine
+            .membership()
+            .resume(&f.auth.authentication)
+            .await
+            .unwrap()
+            .state(),
+        cnrl::State::Admitted
+    );
 }
 
 #[test]
@@ -224,4 +234,45 @@ fn original_cohort_digest_commits_epoch_expiry_and_the_entire_sorted_gate_set() 
         bytes.extend_from_slice(gate.as_str().as_bytes());
     }
     assert_eq!(digest, <[u8; 32]>::from(Sha256::digest(bytes)));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn host_publication_requires_configured_period_and_the_actual_native_owner() {
+    const KEY: &str = "record/window";
+    let f = fixture(EXPIRY, EXPIRY).await;
+    assert!(matches!(
+        f.engine.publish_account_record(KEY, || NOW).await,
+        Err(Error::Policy)
+    ));
+    let mut rules = f.rules.clone();
+    crbk::RecordEpochSettings::define(&mut rules, KEY).unwrap();
+    rules
+        .set_community(KEY, Some(serde_json::json!(100)))
+        .unwrap();
+    f.engine
+        .policy()
+        .lock()
+        .await
+        .schedule_rules(
+            Some(1),
+            crbk::Change {
+                rulebook: rules,
+                announced_at: NOW as i64,
+                effective_at: NOW as i64,
+                notice_seconds: 0,
+                policy_epoch: 2,
+            },
+        )
+        .await
+        .unwrap();
+    // Neither bootstrap nor full G2 material can be manufactured without the
+    // installed original native service; no synthetic empty descriptor escapes.
+    assert!(matches!(
+        f.engine.publish_account_material(KEY, || NOW).await,
+        Err(Error::AccountUnavailable)
+    ));
+    assert!(matches!(
+        f.engine.publish_account_record(KEY, || NOW).await,
+        Err(Error::AccountUnavailable)
+    ));
 }

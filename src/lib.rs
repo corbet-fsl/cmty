@@ -10,8 +10,8 @@ pub mod storage;
 mod types;
 
 pub use community::{
-    AccountAdmission, Admission, Challenge, Community, Config, Parts, PasskeyCertificate,
-    VerifiedPassport,
+    AccountAdmission, AccountPublication, Admission, Challenge, Community, Config, Parts,
+    PasskeyCertificate, VerifiedPassport,
 };
 pub use types::*;
 /// Exact protocol types of the composed facades.
