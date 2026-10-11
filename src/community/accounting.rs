@@ -3,6 +3,8 @@ use super::*;
 use cgts::{AccountServiceRequest, AccountServiceResponse};
 mod authority;
 mod enrollment;
+mod publication;
+mod settlement;
 pub use authority::AccountSession;
 mod lifecycle;
 mod pin_change;
@@ -193,7 +195,7 @@ where
         let now = host_time(&clock, &mut floor)?;
         self.flush_revocations(now).await?;
         host_time(&clock, &mut floor)?;
-        let mut policy = self.policy.clone().lock_owned().await;
+        let policy = self.policy.clone().lock_owned().await;
         let now = host_time(&clock, &mut floor)?;
         let snapshot = self.snapshot_locked(&policy, now).await?;
         let now = host_time(&clock, &mut floor)?;
@@ -206,7 +208,7 @@ where
         let now = host_time(&clock, &mut floor)?;
         ensure_unchanged(&snapshot, &self.snapshot_locked(&policy, now).await?)?;
         host_time(&clock, &mut floor)?;
-        let (response, mut policy) = self
+        let (response, policy) = self
             .gates
             .account_host(
                 match kind {
@@ -224,94 +226,32 @@ where
             )
             .await
             .map_err(host_error)?;
-        async {
-            let (publication, material) = match (kind, response) {
-                (
-                    PublicationKind::Record,
-                    cgts::HostResponse::Record {
-                        publication,
-                        material,
-                    },
-                ) => (Some(publication), material),
-                (PublicationKind::Material, cgts::HostResponse::VerifierMaterial(material)) => {
-                    (None, material)
-                }
-                _ => return Err(Error::Reconcile),
-            };
-            let now = host_time(&clock, &mut floor)?;
-            ensure_unchanged(&snapshot, &self.snapshot_locked(&policy, now).await?)?;
-            let now = host_time(&clock, &mut floor)?;
-            let current_period = policy
-                .record_epoch_settings(period_key, now)
-                .await
-                .map_err(policy_error)?;
-            let now = host_time(&clock, &mut floor)?;
-            let current_version = policy.balance_version(now).await.map_err(policy_error)?;
-            let now = host_time(&clock, &mut floor)?;
-            if current_period.period_seconds != period.period_seconds
-                || current_version.epoch != version.epoch
-                || current_version.revision != version.revision
-                || material.policy_epoch != version.epoch
-                || material.revision != version.revision
-                || publication.as_ref().is_some_and(|published| {
-                    material.record_epoch.as_ref() != Some(published.descriptor())
-                })
-            {
-                return Err(Error::Reconcile);
+        let (publication, material) = match (kind, response) {
+            (
+                PublicationKind::Record,
+                cgts::HostResponse::Record {
+                    publication,
+                    material,
+                },
+            ) => (Some(publication), material),
+            (PublicationKind::Material, cgts::HostResponse::VerifierMaterial(material)) => {
+                (None, material)
             }
-            let epoch_deadline = if let Some(epoch) = &material.record_epoch {
-                if epoch.expires_at.checked_sub(epoch.starts_at) != Some(period.period_seconds) {
-                    return Err(Error::Reconcile);
-                }
-                epoch.check_time(now).map_err(|_| Error::Reconcile)?;
-                epoch.expires_at
-            } else {
-                material.policy.account.policy_valid_until
-            };
-            let material_deadline = material.policy.account.policy_valid_until;
-            let balance = policy
-                .publish_balance(material, now)
-                .await
-                .map_err(|_| Error::Reconcile)?;
-            let now = host_time(&clock, &mut floor)?;
-            ensure_unchanged(&snapshot, &self.snapshot_locked(&policy, now).await?)?;
-            let now = host_time(&clock, &mut floor)?;
-            let feed = policy
-                .refresh_trust(now)
-                .await
-                .map_err(|_| Error::Reconcile)?;
-            let now = host_time(&clock, &mut floor)?;
-            ensure_unchanged(&snapshot, &self.snapshot_locked(&policy, now).await?)?;
-            let now = host_time(&clock, &mut floor)?;
-            let final_period = policy
-                .record_epoch_settings(period_key, now)
-                .await
-                .map_err(policy_error)?;
-            let now = host_time(&clock, &mut floor)?;
-            if final_period.period_seconds != period.period_seconds
-                || feed.policy_epoch != version.epoch
-                || feed.balance.as_ref() != Some(&balance)
-            {
-                return Err(Error::Reconcile);
-            }
-            let signed = policy
-                .key_ring()
-                .map_err(policy_error)?
-                .verify(&balance, csgn::Kind::SettingsSnapshot, now)
-                .map_err(|_| Error::Reconcile)?;
-            let deadline = snapshot
-                .valid_until
-                .min(snapshot.passport.valid_until)
-                .min(material_deadline)
-                .min(epoch_deadline)
-                .min(signed.valid_until());
-            if host_time(&clock, &mut floor)? >= deadline {
-                return Err(Error::Reconcile);
-            }
-            Ok((publication, feed))
-        }
+            _ => return Err(Error::Reconcile),
+        };
+        self.complete_account_publication(
+            publication::PublicationState {
+                policy,
+                snapshot,
+                period_key: period_key.to_owned(),
+                period_seconds: period.period_seconds,
+                version,
+                floor,
+            },
+            (publication, material),
+            &clock,
+        )
         .await
-        .map_err(|_| Error::Reconcile)
     }
 
     /// Perform the same real admission and also project Policy's signed account

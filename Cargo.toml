@@ -35,6 +35,8 @@ cgbl = { git = "https://git.corbet.ch/corbet-libs/cgbl.git", branch = "main" }
 cnrl = { git = "https://git.corbet.ch/corbet-foss/cnrl", branch = "main" }
 cgrd = { git = "https://git.corbet.ch/corbet-foss/cgrd", branch = "main" }
 ed25519-dalek = "2.2"
+openssl = "0.10"
+zeroize = "1"
 webauthn-authenticator-rs = { version = "0.5.5", default-features = false, features = ["softtoken"] }
 rand = { version = "0.8", features = ["std_rng"] }
 csgn = { git = "https://git.corbet.ch/corbet-foss/csgn", branch = "main", features = ["signer"] }
