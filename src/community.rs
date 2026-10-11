@@ -479,7 +479,7 @@ where
         })?;
         // Credential/account issuance may fail after this real membership
         // commit. Withhold the result without implying admission rollback.
-        let result = async {
+        let result: Result<Outcome> = async {
             let handle = self
                 .membership
                 .handle(auth)
