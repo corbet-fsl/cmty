@@ -229,3 +229,30 @@ Registration and the unchanged membership/gate/credential pipeline recheck the
 current descriptor and complete Policy snapshot. Root membership grants no
 operator role and discloses no source community or role. Source-role authorization
 and root-credential issuance remain separate service responsibilities.
+
+The original in-process source-role path uses `root_board_issuer` on the actual
+root Community. This opaque owner retains its dedicated provisioned CPSD key,
+the same root nonce store and the same Policy mutex; source configuration never
+receives the key. Source communities call `begin_root_board_issuance` and
+`finish_root_board_issuance` using genuine garden passkey authentication, the
+original guarded session expiry and the direct shared live clock. Root Policy
+is locked before source Policy, then the actual Membership role lease. Root
+cannot be its own source and aliased Policy owners are refused before locking.
+
+The two original signed requests bind the complete common descriptor and global
+cohort. The inclusive proof deadline is strictly below every exclusive session,
+membership, authenticated settings, global policy and publication bound. The
+source verifier uses its installed complete global ring; no request selects it.
+The verified source pseudonym must match the actual current Admin/Root lease.
+
+After the root nonce is consumed, Membership takes its actual source database's
+Immediate writer barrier and rechecks key, role, lifecycle and legal standing
+through their owners. It uses the original second pooled read connection;
+insufficient pool capacity refuses. Original CPSD signing runs synchronously
+inside that barrier, with strict live-time cuts and acknowledged read-only
+cleanup before returning the answer. Acquiring the barrier after nonce
+consumption also supports root/source scopes sharing one physical database.
+Cancellation, expiry or unknown cleanup withholds the answer and never restores
+the consumed nonce. No source identity, role history or response cache is added
+to root storage. The host retains its actual session owner through synchronous
+response publication; a copied expiry alone is not session authority.

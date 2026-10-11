@@ -4,11 +4,13 @@ mod accounting;
 pub use accounting::{AccountAdmission, AccountPublication, PinChange};
 mod certificate;
 mod root_board;
+mod root_issuance;
 pub use certificate::PasskeyCertificate;
 use cpsd::{
     ChallengeStore, CommunityId, IssuerPublicKey, Presentation, PresentationRequest, Verifier,
     rand::{CryptoRng, RngCore},
 };
+pub use root_issuance::{RootBoardChallenge, RootBoardIssuer, RootBoardSession};
 use tokio::sync::Mutex;
 
 use crate::{storage::Storage, *};
@@ -101,6 +103,7 @@ pub struct Community<S: Storage, M, L, C, G, A, R, P, K> {
     community: CommunityId,
     root_board: bool,
     verifier: Verifier<S::Challenges>,
+    root_issuance_store: S::Challenges,
     membership: cmbr::Membership<M, L, C>,
     gates: cgts::Gatekeeper<G, A>,
     policy: std::sync::Arc<Mutex<cplc::Policy<R, P, K>>>,
@@ -161,6 +164,7 @@ where
             community,
             root_board,
             verifier: Verifier::new(store, issuer_keys)?,
+            root_issuance_store: storage.challenges(),
             membership: parts.membership,
             gates: parts.gates,
             policy: std::sync::Arc::new(Mutex::new(parts.policy)),

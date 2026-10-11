@@ -11,7 +11,8 @@ mod types;
 
 pub use community::{
     AccountAdmission, AccountPublication, Admission, Challenge, Community, Config, Parts,
-    PasskeyCertificate, PinChange, VerifiedPassport,
+    PasskeyCertificate, PinChange, RootBoardChallenge, RootBoardIssuer, RootBoardSession,
+    VerifiedPassport,
 };
 pub use types::*;
 /// Exact protocol types of the composed facades.
