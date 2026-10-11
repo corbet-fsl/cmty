@@ -1,5 +1,4 @@
 //! Original authenticated-key certificates and actual revocation publication.
-#[allow(dead_code)]
 mod support;
 use cmty::*;
 use support::*;
