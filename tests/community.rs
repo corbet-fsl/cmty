@@ -676,6 +676,8 @@ async fn all_facades_reopen_on_one_database_and_replay_stays_consumed() {
                 &proof,
                 Admission {
                     authentication: &f.auth.authentication,
+                    session: &f.session,
+                    creation: None,
                     devices: &DEVICES,
                     lease: crgs::YearMonth::new(2027, 9).unwrap()
                 },
@@ -2151,6 +2153,8 @@ async fn finish_rejects_policy_changed_during_verification() {
     // shared field borrows only, disjoint from the mutable rng borrow below.
     let admission = Admission {
         authentication: &f.auth.authentication,
+        session: &f.session,
+        creation: None,
         devices: &DEVICES,
         lease: crgs::YearMonth::new(2027, 9).unwrap(),
     };

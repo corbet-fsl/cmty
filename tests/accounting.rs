@@ -157,6 +157,8 @@ async fn issue_account(
             AccountAdmission {
                 membership: Admission {
                     authentication: &f.auth.authentication,
+                    session: &f.session,
+                    creation: None,
                     devices: &DEVICES,
                     lease: crgs::YearMonth::new(2027, 9).unwrap(),
                 },

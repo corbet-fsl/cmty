@@ -15,6 +15,9 @@ use cpsd::{
 use ed25519_dalek::{Signer, SigningKey};
 use webauthn_authenticator_rs::{AuthenticatorBackend, softtoken::SoftToken};
 
+mod creation;
+pub use creation::{Session, bootstrap, creation_invitation};
+
 pub const NOW: u64 = 1_800_000_000 / 86_400 * 86_400;
 pub const EXPIRY: u64 = NOW + 90 * 86_400;
 pub const USER: ckyh::Uuid = ckyh::Uuid::from_u128(1);
@@ -111,6 +114,7 @@ pub struct Fixture<S: Storage> {
     pub rng: StdRng,
     pub db: crlt::Db,
     pub auth: cmbr::Login,
+    pub session: Session,
     pub clock: Clock,
     pub credential_id: ckyh::CredentialID,
     pub rules: crbk::Rulebook,
@@ -129,6 +133,7 @@ pub async fn open(url: &str, token: &str) -> crlt::Db {
         ("csgn", csgn::SCHEMA),
         ("cpsd", storage::SCHEMA),
         ("cmbr-device-keys", cmbr::DEVICE_KEYS_SCHEMA),
+        ("cmbr-creation", cmbr::CREATION_SCHEMA),
     ]);
     let migrations: Vec<_> = schemas
         .iter()
@@ -375,13 +380,33 @@ pub async fn fixture_with_identity<S: Storage>(
         Some(passport) => passport,
         None => passport(&mut rng, expiry).await,
     };
+    // The original target passport and its deterministic holder remain intact.
+    // A separate, explicitly trusted fixture issuer creates the real first Root.
+    let mut root_rng = StdRng::seed_from_u64(4242);
+    let root_gate = GateId::new("global-test").unwrap();
+    let root_issuer = IssuerKey::generate(
+        &mut root_rng,
+        KeyId::new("fixture-root-issuer").unwrap(),
+        vec![root_gate.clone()],
+    )
+    .unwrap();
+    let root_secret = HolderSecret::generate(&mut root_rng);
+    let root_passport = blind_passport(
+        &mut root_rng,
+        &root_issuer,
+        &root_secret,
+        root_gate,
+        expiry,
+        epoch,
+    )
+    .await;
     let rules = rulebook();
     let (policy, _) = policies(&db, rules.clone()).await;
     let mut configuration = config(expiry, valid_until);
     configuration.passport.epoch = epoch;
     let engine = Community::new(
         storage(&db),
-        vec![passport.issuer().clone()],
+        vec![passport.issuer().clone(), root_issuer.public_key().clone()],
         Parts {
             membership: members(&db, clock.clone()),
             gates: gates(&db),
@@ -390,6 +415,7 @@ pub async fn fixture_with_identity<S: Storage>(
         configuration,
     )
     .unwrap();
+    bootstrap(&engine, &root_passport, &mut root_rng, NOW).await;
     let challenge = engine.begin(&mut rng, NOW).await.unwrap();
     let presentation = present(&engine, &passport, &mut rng, &challenge, NOW).await;
     let verified = engine
@@ -441,6 +467,7 @@ pub async fn fixture_with_identity<S: Storage>(
         .finish_login(pending, response.into())
         .await
         .unwrap();
+    let session = Session::new(&auth.authentication, valid_until);
     assert_eq!(
         DEVICES[0],
         SigningKey::from_bytes(&[13; 32]).verifying_key().to_bytes()
@@ -476,6 +503,7 @@ pub async fn fixture_with_identity<S: Storage>(
         rng,
         db,
         auth,
+        session,
         clock,
         credential_id,
         rules,
@@ -493,6 +521,8 @@ impl<S: Storage> Fixture<S> {
             authentication: &self.auth.authentication,
             devices: &DEVICES,
             lease: crgs::YearMonth::new(2027, 9).unwrap(),
+            session: &self.session,
+            creation: None,
         }
     }
     pub async fn proof(&mut self) -> (Challenge, Presentation) {
@@ -517,6 +547,8 @@ impl<S: Storage> Fixture<S> {
                     authentication: &self.auth.authentication,
                     devices: &DEVICES,
                     lease: crgs::YearMonth::new(2027, 9).unwrap(),
+                    session: &self.session,
+                    creation: None,
                 },
                 now,
             )
@@ -525,7 +557,20 @@ impl<S: Storage> Fixture<S> {
     pub async fn issue(&mut self) -> Outcome {
         let (challenge, proof) = self.proof().await;
         let now = self.clock.0.load(Ordering::SeqCst) as u64;
-        self.finish(&challenge, &proof, now).await.unwrap()
+        let outcome = self.finish(&challenge, &proof, now).await.unwrap();
+        if matches!(&outcome, Outcome::Issued(_)) {
+            assert_eq!(
+                self.engine
+                    .membership()
+                    .member(&self.auth.authentication)
+                    .await
+                    .unwrap()
+                    .unwrap()
+                    .role,
+                crgs::Role::Member
+            );
+        }
+        outcome
     }
     pub async fn gate(&self, until: i64) {
         let snapshot = self.engine.snapshot(NOW).await.unwrap();

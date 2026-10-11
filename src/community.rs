@@ -95,6 +95,11 @@ pub struct Admission<'a> {
     pub devices: &'a [[u8; 32]],
     /// Coarse lease end from the service's retention policy, not credential expiry.
     pub lease: crgs::YearMonth,
+    /// Exact originating host session; removal or replacement invalidates it.
+    pub session: &'a dyn cmbr::RoleSession,
+    /// Original target-Policy role invitation for first-Root creation only.
+    /// This is untrusted COSE data, independently verified by Membership.
+    pub creation: Option<&'a [u8]>,
 }
 
 /// Community composition over cmbr, cgts and cplc. There is no local member
@@ -443,22 +448,37 @@ where
             .may(&snapshot, subject, ADMISSION_ACTION, &checked, now)
             .await
             .map_err(policy_error)?;
+        let request = cmbr::AdmissionRequest {
+            authentication: auth,
+            policy: &policy,
+            snapshot: &snapshot,
+            gates: &checked,
+            checked_at: now,
+            lease: admission.lease,
+            session: admission.session,
+        };
         if !decision.allowed {
             // This explicit admission attempt may lapse an admitted row. Merely
             // rendering the cmbr lobby never performs this transition.
             self.membership
-                .lapse(auth, &policy, &snapshot, &checked)
+                .lapse_current(request)
                 .await
-                .map_err(member_error)?;
+                .map_err(|error| match error {
+                    cmbr::Error::Unavailable => Error::Reconcile,
+                    error => member_error(error),
+                })?;
             return Ok(Outcome::Missing(decision));
         }
-        let admitted = self
-            .membership
-            .admit(auth, &policy, &snapshot, &checked, admission.lease)
-            .await
-            .map_err(member_error)?;
-        // Account issuance may fail after this real membership commit. Preserve
-        // ordinary issuance errors, but never imply account-flow rollback.
+        let admitted = match admission.creation {
+            Some(invitation) => self.membership.admit_first_root(request, invitation).await,
+            None => self.membership.admit_current(request).await,
+        }
+        .map_err(|error| match error {
+            cmbr::Error::Unavailable => Error::Reconcile,
+            error => member_error(error),
+        })?;
+        // Credential/account issuance may fail after this real membership
+        // commit. Withhold the result without implying admission rollback.
         let result = async {
             let handle = self
                 .membership
@@ -571,11 +591,9 @@ where
             })))
         }
         .await;
-        if account_device.is_some() {
-            result.map_err(|_| Error::Reconcile)
-        } else {
-            result
-        }
+        // The original membership admission is already committed, including
+        // ordinary issuance. Later failure never implies that it rolled back.
+        result.map_err(|_| Error::Reconcile)
     }
 
     /// Retain revoked passkey IDs and publish a conservative community epoch

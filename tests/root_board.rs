@@ -1,5 +1,7 @@
 //! Root admission through real CPSD blind issuance, durable challenge storage,
 //! passkeys, Membership, Gatekeeping and Policy. No synthetic admitted row.
+#[path = "root_board/creation.rs"]
+mod creation;
 mod support;
 
 use cmty::*;
@@ -76,7 +78,6 @@ async fn root() -> Root {
     )
     .await;
     let scope = CommunityId::new("root").unwrap();
-    let source = CommunityId::new("source").unwrap();
     let gate = GateId::new("global-test").unwrap();
     let mut rng = StdRng::seed_from_u64(1701);
     let global =
@@ -87,23 +88,6 @@ async fn root() -> Root {
         vec![GateId::new("root-board").unwrap()],
     )
     .unwrap();
-    let mut holder =
-        OpaqueHolder::from_seed_and_sealing_key(&mut [17; 32], &mut [18; 32], b"root-test")
-            .unwrap();
-    let challenge = IssuanceChallenge::generate(&mut rng);
-    let request = holder
-        .begin_issuance(&mut rng, global.public_key(), &challenge)
-        .unwrap();
-    let blind = global
-        .issue_blind(
-            &mut rng,
-            &request,
-            &challenge,
-            &PassportAttributes::new(EXPIRY, 7).with_gate(gate.clone(), EXPIRY),
-        )
-        .unwrap();
-    holder.finish_issuance(&blind).unwrap();
-
     let (mut policy, _) = support::policies_in(&db, rules(), "root").await;
     let descriptor = RootBoardPublicKey::from_authenticated_beacon(
         common.public_key().clone(),
@@ -117,60 +101,30 @@ async fn root() -> Root {
         scope.clone(),
         policy.key_ring().unwrap().clone(),
     );
-    let mut source_signer = csgn::Signer::new(
-        "source",
-        csgn::SecretKey::from_seed(&mut [19; 32]),
-        NOW,
-        EXPIRY - NOW,
-    )
-    .unwrap();
-    let expected_source = AuthenticatedCommunity::from_authenticated_origin(
-        source.clone(),
-        source_signer.key_ring().clone(),
-    );
-    let context = RootBoardIssuanceContext::new(
+    let holder = creation::holder(
         &mut rng,
-        PresentationRequest::for_epoch(
-            &mut StdRng::seed_from_u64(1702),
-            source,
-            7,
-            [gate],
-            AT + 60,
-            EXPIRY,
-        )
-        .unwrap(),
-        descriptor.clone(),
+        &global,
+        &common,
+        &mut policy,
+        &descriptor,
+        &expected,
+        17,
     )
-    .unwrap();
-    let signed = policy
-        .sign_root_board_issuance_context(&context, AT)
-        .await
-        .unwrap();
-    let signed_source = source_signer
-        .sign(
-            csgn::Kind::Credential,
-            &context.source_request().to_bytes(),
-            AT,
-            AT + 61,
-        )
-        .unwrap();
-    let issuance = holder
-        .begin_root_board_issuance(
-            &mut rng,
-            &expected,
-            &signed,
-            &expected_source,
-            &signed_source,
-            AT,
-        )
-        .unwrap();
-    let verified =
-        verify_root_board_issuance(&[global.public_key().clone()], &context, &issuance, AT)
-            .unwrap();
-    // This fixture supplies a real credential from its issuer; authorization of
-    // the source role belongs to the separate issuance-service tests.
-    let blind = issue_blind_root_board(&mut rng, &common, &descriptor, verified, AT).unwrap();
-    holder.finish_root_board_issuance(&blind).unwrap();
+    .await;
+    let first_root = creation::holder(
+        &mut rng,
+        &global,
+        &common,
+        &mut policy,
+        &descriptor,
+        &expected,
+        27,
+    )
+    .await;
+    assert_ne!(
+        holder.pseudonym(&scope).to_hex(),
+        first_root.pseudonym(&scope).to_hex(),
+    );
     let engine = Community::new_root_board(
         cmty::storage::LibsqlStorage::new(&db, scope, 32).unwrap(),
         vec![global.public_key().clone()],
@@ -186,14 +140,16 @@ async fn root() -> Root {
         support::config(EXPIRY, EXPIRY),
     )
     .unwrap();
-    Root {
+    let mut fixture = Root {
         _directory: directory,
         engine,
         holder,
         expected,
         descriptor,
         rng,
-    }
+    };
+    creation::bootstrap(&mut fixture, &first_root).await;
+    fixture
 }
 
 impl Root {
@@ -213,67 +169,16 @@ impl Root {
     }
 
     async fn enrol(&mut self) -> cmbr::Login {
-        let (challenge, proof) = self.proof().await;
-        let verified = self
-            .engine
-            .verify_root_board(&challenge, &proof, AT)
-            .await
-            .unwrap();
-        assert_eq!(
-            verified.member_id(),
-            self.holder.pseudonym(self.engine.community()).to_hex()
-        );
-        let (request, pending) = self
-            .engine
-            .begin_registration(verified, USER, AT)
-            .await
-            .unwrap();
-        let mut device = SoftToken::new(true).unwrap().0;
-        let mut options = request.public_key;
-        options
-            .authenticator_selection
-            .as_mut()
-            .unwrap()
-            .require_resident_key = false;
-        let response = device
-            .perform_register(ckyh::Url::parse(ORIGIN).unwrap(), options, 300_000)
-            .unwrap();
-        let credential: ckyh::CredentialID = response.raw_id.clone().into();
-        self.engine
-            .membership()
-            .finish_registration(pending, response.into())
-            .await
-            .unwrap();
-        let (request, pending) = self
-            .engine
-            .membership()
-            .begin_login(USER, credential)
-            .await
-            .unwrap();
-        let response = device
-            .perform_auth(
-                ckyh::Url::parse(ORIGIN).unwrap(),
-                request.public_key,
-                300_000,
-            )
-            .unwrap();
-        let login = self
-            .engine
-            .membership()
-            .finish_login(pending, response.into())
-            .await
-            .unwrap();
-        self.engine
-            .membership()
-            .authorize_device_key(&login.authentication, DEVICES[0])
-            .await
-            .unwrap();
-        self.engine
-            .membership()
-            .reserve_handle(&login.authentication, "root_member", &[])
-            .await
-            .unwrap();
-        login
+        creation::enrol(
+            &self.engine,
+            &self.holder,
+            &self.expected,
+            &mut self.rng,
+            USER,
+            "root_member",
+            DEVICES[0],
+        )
+        .await
     }
 }
 
@@ -281,6 +186,7 @@ impl Root {
 async fn joint_registration_and_renewal_issue_ordinary_membership_bounded_by_root_expiry() {
     let mut f = root().await;
     let login = f.enrol().await;
+    let session = support::Session::new(&login.authentication, f.descriptor.expires_at());
     for _ in 0..2 {
         let (challenge, proof) = f.proof().await;
         let outcome = f
@@ -290,6 +196,8 @@ async fn joint_registration_and_renewal_issue_ordinary_membership_bounded_by_roo
                 &proof,
                 Admission {
                     authentication: &login.authentication,
+                    session: &session,
+                    creation: None,
                     devices: &DEVICES,
                     lease: crgs::YearMonth::new(2027, 9).unwrap(),
                 },
@@ -327,6 +235,16 @@ async fn joint_registration_and_renewal_issue_ordinary_membership_bounded_by_roo
                 .unwrap()
                 .state(),
             cnrl::State::Admitted
+        );
+        assert_eq!(
+            f.engine
+                .membership()
+                .member(&login.authentication)
+                .await
+                .unwrap()
+                .unwrap()
+                .role,
+            crgs::Role::Member,
         );
         assert!(
             f.engine

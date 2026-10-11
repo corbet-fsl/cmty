@@ -95,6 +95,24 @@ pub async fn world() -> World {
         support::config(EXPIRY, EXPIRY),
     )
     .unwrap();
+    // A separate real passport under this SAME configured global issuer
+    // establishes the original first Root. The target holder remains distinct
+    // and follows ordinary admission before its explicit existing Admin role.
+    let root_secret = HolderSecret::generate(&mut rng);
+    let root_passport = support::blind_passport(
+        &mut rng,
+        &global,
+        &root_secret,
+        GateId::new("global-test").unwrap(),
+        EXPIRY,
+        7,
+    )
+    .await;
+    assert_ne!(
+        root_passport.pseudonym(source.community()).to_hex(),
+        holder.pseudonym(source.community()).to_hex(),
+    );
+    support::bootstrap(&source, &root_passport, &mut rng, NOW).await;
     let login = enrol(&source, &holder, &source_expected, &mut rng).await;
     let snapshot = source.snapshot(NOW).await.unwrap();
     let subject = holder.pseudonym(source.community()).to_hex();
@@ -120,6 +138,7 @@ pub async fn world() -> World {
     let proof = holder
         .present(&mut rng, &source_expected, challenge.signed_request(), NOW)
         .unwrap();
+    let session = support::Session::new(&login.authentication, EXPIRY);
     let outcome = source
         .finish(
             &mut rng,
@@ -127,6 +146,8 @@ pub async fn world() -> World {
             &proof,
             Admission {
                 authentication: &login.authentication,
+                session: &session,
+                creation: None,
                 devices: &DEVICES,
                 lease: crgs::YearMonth::new(2027, 9).unwrap(),
             },
@@ -141,6 +162,16 @@ pub async fn world() -> World {
         .await
         .unwrap();
     assert_eq!(row.state(), cmbr::State::Admitted);
+    assert_eq!(
+        source
+            .membership()
+            .member(&login.authentication)
+            .await
+            .unwrap()
+            .unwrap()
+            .role,
+        crgs::Role::Member,
+    );
     // Provision an existing authoritative role only AFTER actual admission,
     // through the original register owner. This is not voucher bootstrap or a
     // fabricated admitted row; subsequent demotion uses Membership's actor API.

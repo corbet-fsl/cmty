@@ -31,6 +31,7 @@ serde_json = "1"
 thiserror = "2"
 
 [dev-dependencies]
+cvch = { git = "https://git.corbet.ch/corbet-foss/cvch", branch = "main" }
 cgbl = { git = "https://git.corbet.ch/corbet-libs/cgbl.git", branch = "main" }
 cnrl = { git = "https://git.corbet.ch/corbet-foss/cnrl", branch = "main" }
 cgrd = { git = "https://git.corbet.ch/corbet-foss/cgrd", branch = "main" }
