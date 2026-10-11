@@ -32,18 +32,12 @@ impl PassportPolicy {
     /// gate count, then each sorted gate's u64 byte length and UTF-8 bytes.
     /// Callers must obtain this policy from authenticated global configuration.
     pub fn digest(&self) -> [u8; 32] {
-        use sha2::{Digest, Sha256};
-        let mut hash = Sha256::new();
-        hash.update(b"cmty.passport-policy.v1\0");
-        hash.update(self.epoch.to_be_bytes());
-        hash.update(self.valid_until.to_be_bytes());
-        hash.update((self.gates.len() as u64).to_be_bytes());
-        for gate in &self.gates {
-            let bytes = gate.as_str().as_bytes();
-            hash.update((bytes.len() as u64).to_be_bytes());
-            hash.update(bytes);
-        }
-        hash.finalize().into()
+        let gates = self
+            .gates
+            .iter()
+            .map(|gate| gate.as_str().to_owned())
+            .collect();
+        cgts::cblc::admission::passport_cohort_digest(self.epoch, self.valid_until, &gates)
     }
 }
 
