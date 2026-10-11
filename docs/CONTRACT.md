@@ -217,3 +217,15 @@ clock as Membership; the original receipt expiry cannot extend session authority
 Current Policy/passport bounds remain held through commit. The host must recheck
 the exact session after return; a possibly committed late result is reconciled
 by reading the existing pin, never by spending again.
+
+## Mandatory root-board admission
+
+The reserved `root` community requires `Community::new_root_board`. Its retained
+challenge contains the original CPSD joint root request and its current signed
+common descriptor. Ordinary passport verification refuses this mode before
+consuming the challenge. The actual joint verifier consumes the original nonce,
+proves the same hidden holder, and caps global evidence by both cohort lifetimes.
+Registration and the unchanged membership/gate/credential pipeline recheck the
+current descriptor and complete Policy snapshot. Root membership grants no
+operator role and discloses no source community or role. Source-role authorization
+and root-credential issuance remain separate service responsibilities.

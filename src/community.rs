@@ -3,6 +3,7 @@ use chrono::{DateTime, Datelike};
 mod accounting;
 pub use accounting::{AccountAdmission, AccountPublication, PinChange};
 mod certificate;
+mod root_board;
 pub use certificate::PasskeyCertificate;
 use cpsd::{
     ChallengeStore, CommunityId, IssuerPublicKey, Presentation, PresentationRequest, Verifier,
@@ -15,6 +16,7 @@ use crate::{storage::Storage, *};
 /// Server-held admission challenge. Only the request travels to the holder.
 pub struct Challenge {
     request: PresentationRequest,
+    root_board: Option<cpsd::RootBoardRequest>,
     signed_request: Vec<u8>,
     policy: PolicySnapshot,
     not_before: u64,
@@ -29,6 +31,10 @@ impl Challenge {
     /// Serializable passport request; retain this handle on the server.
     pub fn request(&self) -> &PresentationRequest {
         &self.request
+    }
+    /// Mandatory joint proof request, only for the reserved root community.
+    pub fn root_board_request(&self) -> Option<&cpsd::RootBoardRequest> {
+        self.root_board.as_ref()
     }
 }
 
@@ -45,6 +51,7 @@ pub struct VerifiedPassport {
     community: CommunityId,
     policy: PolicySnapshot,
     verified_at: u64,
+    root_board: Option<cpsd::RootBoardPublicKey>,
 }
 
 impl VerifiedPassport {
@@ -92,6 +99,7 @@ pub struct Admission<'a> {
 /// store, gate engine, policy evaluator, lifetime calculator or signer.
 pub struct Community<S: Storage, M, L, C, G, A, R, P, K> {
     community: CommunityId,
+    root_board: bool,
     verifier: Verifier<S::Challenges>,
     membership: cmbr::Membership<M, L, C>,
     gates: cgts::Gatekeeper<G, A>,
@@ -120,10 +128,24 @@ where
         parts: Parts<M, L, C, G, A, R, P, K>,
         config: Config,
     ) -> Result<Self> {
+        Self::new_selected(storage, issuer_keys, parts, config, false)
+    }
+
+    fn new_selected(
+        storage: S,
+        issuer_keys: Vec<IssuerPublicKey>,
+        parts: Parts<M, L, C, G, A, R, P, K>,
+        config: Config,
+        root_board: bool,
+    ) -> Result<Self> {
         let store = storage.challenges();
         let community = store.community().clone();
         let name = community_text(&community)?;
-        if parts.policy.key_ring().map_err(policy_error)?.issuer() != name {
+        if (name == "root") != root_board
+            || parts.policy.key_ring().map_err(policy_error)?.issuer() != name
+            || parts.membership.community() != name
+            || parts.gates.community() != name
+        {
             return Err(Error::Scope);
         }
         if config.challenge_lifetime == 0 || config.challenge_lifetime > 300 {
@@ -137,6 +159,7 @@ where
         }
         Ok(Self {
             community,
+            root_board,
             verifier: Verifier::new(store, issuer_keys)?,
             membership: parts.membership,
             gates: parts.gates,
@@ -174,38 +197,7 @@ where
 
     /// Reserve a single-use passport request. Rate-limit before this operation.
     pub async fn begin<T: RngCore + CryptoRng>(&self, rng: &mut T, now: u64) -> Result<Challenge> {
-        self.flush_revocations(now).await?;
-        let mut signer = self.policy.lock().await;
-        let policy = self.snapshot_locked(&signer, now).await?;
-        let lifetime = self.config.read().map_err(policy_error)?.challenge_lifetime;
-        let deadline = now
-            .checked_add(lifetime)
-            .ok_or(Error::Time)?
-            .min(policy.passport.valid_until - 1)
-            .min(policy.valid_until - 1);
-        if deadline <= now {
-            return Err(Error::Time);
-        }
-        let request = self
-            .verifier
-            .request_for_epoch(
-                rng,
-                policy.passport.epoch,
-                policy.passport.gates.iter().cloned(),
-                deadline,
-                policy.passport.valid_until,
-            )
-            .await?;
-        let signed_request = signer
-            .sign_presentation_request(&request, now)
-            .await
-            .map_err(signing_error)?;
-        Ok(Challenge {
-            request,
-            signed_request,
-            policy,
-            not_before: now,
-        })
+        self.begin_selected(rng, now).await
     }
 
     /// Verify and atomically consume a presentation before any membership work.
@@ -218,7 +210,11 @@ where
         now: u64,
     ) -> Result<VerifiedPassport> {
         check_time(now)?;
-        if now < challenge.not_before || challenge.request.community() != &self.community {
+        if self.root_board
+            || challenge.root_board.is_some()
+            || now < challenge.not_before
+            || challenge.request.community() != &self.community
+        {
             return Err(Error::Passport);
         }
         let policy = self.snapshot(now).await?;
@@ -241,6 +237,7 @@ where
             community: self.community.clone(),
             policy,
             verified_at: now,
+            root_board: None,
         })
     }
 
@@ -279,9 +276,8 @@ where
         if passport.community != self.community || passport.verified_at != now {
             return Err(Error::Passport);
         }
-        if !passport.policy.unchanged(&self.snapshot(now).await?) {
-            return Err(Error::Policy);
-        }
+        let policy = self.policy.lock().await;
+        self.passport_current(&passport, &policy, now).await?;
         match seed {
             Some(seed) => {
                 self.membership
@@ -377,11 +373,24 @@ where
             cgts::Context<'_>,
         ) -> cgts::Result<Vec<cgts::CheckedGate>>,
     ) -> Result<Outcome> {
-        let (admission, account_device) = selection;
         let passport = self.verify(rng, challenge, presentation, now).await?;
+        self.finish_verified(passport, selection, now, checks).await
+    }
+
+    async fn finish_verified(
+        &self,
+        passport: VerifiedPassport,
+        selection: (Admission<'_>, Option<[u8; 32]>),
+        now: u64,
+        checks: impl AsyncFnOnce(
+            &cgts::Gatekeeper<G, A>,
+            cgts::Context<'_>,
+        ) -> cgts::Result<Vec<cgts::CheckedGate>>,
+    ) -> Result<Outcome> {
+        let (admission, account_device) = selection;
         let snapshot = {
             let mut policy = self.policy.lock().await;
-            ensure_unchanged(&passport.policy, &self.snapshot_locked(&policy, now).await?)?;
+            self.passport_current(&passport, &policy, now).await?;
             policy.verified_settings(now).await.map_err(policy_error)?
         };
         let auth = admission.authentication;
@@ -421,7 +430,7 @@ where
             Err(_) => return Err(Error::Gate),
         };
         let mut policy = self.policy.lock().await;
-        ensure_unchanged(&passport.policy, &self.snapshot_locked(&policy, now).await?)?;
+        self.passport_current(&passport, &policy, now).await?;
         policy
             .validate_snapshot(&snapshot, now)
             .await
@@ -475,7 +484,7 @@ where
                     });
                 }
             }
-            ensure_unchanged(&passport.policy, &self.snapshot_locked(&policy, now).await?)?;
+            self.passport_current(&passport, &policy, now).await?;
             // A cmbr commit can precede a signing failure. No bytes escape on failure;
             // retries start with a new presentation and do not change member class.
             let request = || cplc::CredentialRequest {

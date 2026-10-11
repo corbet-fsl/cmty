@@ -141,9 +141,13 @@ pub async fn open(url: &str, token: &str) -> crlt::Db {
 }
 
 pub fn members(db: &crlt::Db, clock: Clock) -> Members {
+    members_in(db, clock, "example")
+}
+
+pub fn members_in(db: &crlt::Db, clock: Clock, community: &str) -> Members {
     cmbr::Membership::new(
         db,
-        cmbr::LibsqlStorage::new(db, "example").unwrap(),
+        cmbr::LibsqlStorage::new(db, community).unwrap(),
         cmbr::Config {
             pending_days: 2,
             lease_months: 12,
@@ -159,10 +163,14 @@ pub fn members(db: &crlt::Db, clock: Clock) -> Members {
 }
 
 pub fn gates(db: &crlt::Db) -> Gates {
+    gates_in(db, "example")
+}
+
+pub fn gates_in(db: &crlt::Db, community: &str) -> Gates {
     cgts::Gatekeeper::new(
-        cgts::LibsqlStore::new(db, "example").unwrap(),
+        cgts::LibsqlStore::new(db, community).unwrap(),
         cgts::LegalGate::new(
-            cgts::legal_storage::LibsqlStore::new(db, "example").unwrap(),
+            cgts::legal_storage::LibsqlStore::new(db, community).unwrap(),
             Authority,
         ),
     )
@@ -244,10 +252,18 @@ pub fn schema(version: u32) -> cplc::cshm::Schema {
 }
 
 pub async fn policies(db: &crlt::Db, rules: crbk::Rulebook) -> (Policies, Rules) {
+    policies_in(db, rules, "example").await
+}
+
+pub async fn policies_in(
+    db: &crlt::Db,
+    rules: crbk::Rulebook,
+    community: &str,
+) -> (Policies, Rules) {
     let store = SharedRulebook::new(crbk::LibsqlStore::new(db.clone()));
     let signer = csgn::PersistentSigner::create(
-        csgn::LibsqlStore::new(db.community("example").unwrap()),
-        "example",
+        csgn::LibsqlStore::new(db.community(community).unwrap()),
+        community,
         csgn::SecretKey::from_seed(&mut [1; 32]),
         NOW,
         ESTABLISHED_MEMBER_LIFETIME,
@@ -256,7 +272,7 @@ pub async fn policies(db: &crlt::Db, rules: crbk::Rulebook) -> (Policies, Rules)
     .unwrap();
     let mut policy = cplc::Policy::create(
         store.clone(),
-        cplc::LibsqlStore::new(db, "example").unwrap(),
+        cplc::LibsqlStore::new(db, community).unwrap(),
         signer,
         cplc::Config {
             credential_action: ADMISSION_ACTION.into(),
@@ -278,7 +294,9 @@ pub async fn policies(db: &crlt::Db, rules: crbk::Rulebook) -> (Policies, Rules)
         )
         .await
         .unwrap();
-    policy.set_schema(schema(3)).await.unwrap();
+    let mut definition = schema(3);
+    definition.community = community.into();
+    policy.set_schema(definition).await.unwrap();
     (policy, store)
 }
 
