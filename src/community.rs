@@ -3,6 +3,7 @@ use chrono::{DateTime, Datelike};
 mod accounting;
 pub use accounting::{AccountAdmission, AccountPublication, AccountSession, PinChange};
 mod certificate;
+mod founder;
 mod root_board;
 mod root_issuance;
 pub use certificate::PasskeyCertificate;
@@ -396,7 +397,25 @@ where
             cgts::Context<'_>,
         ) -> cgts::Result<Vec<cgts::CheckedGate>>,
     ) -> Result<Outcome> {
+        self.finish_verified_entitled(passport, selection, None, now, checks)
+            .await
+    }
+
+    async fn finish_verified_entitled(
+        &self,
+        passport: VerifiedPassport,
+        selection: (Admission<'_>, Option<[u8; 32]>),
+        founder: Option<&[u8]>,
+        now: u64,
+        checks: impl AsyncFnOnce(
+            &cgts::Gatekeeper<G, A>,
+            cgts::Context<'_>,
+        ) -> cgts::Result<Vec<cgts::CheckedGate>>,
+    ) -> Result<Outcome> {
         let (admission, account_device) = selection;
+        if founder.is_some() && admission.creation.is_some() {
+            return Err(Error::Membership);
+        }
         let snapshot = {
             let mut policy = self.policy.lock().await;
             self.passport_current(&passport, &policy, now).await?;
@@ -469,9 +488,15 @@ where
                 })?;
             return Ok(Outcome::Missing(decision));
         }
-        let admitted = match admission.creation {
-            Some(invitation) => self.membership.admit_first_root(request, invitation).await,
-            None => self.membership.admit_current(request).await,
+        let admitted = match (founder, admission.creation) {
+            (Some(invitation), None) => {
+                self.membership
+                    .admit_founder_admin(request, invitation)
+                    .await
+            }
+            (None, Some(invitation)) => self.membership.admit_first_root(request, invitation).await,
+            (None, None) => self.membership.admit_current(request).await,
+            (Some(_), Some(_)) => return Err(Error::Membership),
         }
         .map_err(|error| match error {
             cmbr::Error::Unavailable => Error::Reconcile,
