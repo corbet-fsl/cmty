@@ -2,6 +2,8 @@
 use super::*;
 use cgts::{AccountServiceRequest, AccountServiceResponse};
 mod lifecycle;
+mod pin_change;
+pub use pin_change::PinChange;
 
 /// Admission requesting Policy's original account grant for one already
 /// authorized device. Global cohort metadata always comes from Community.

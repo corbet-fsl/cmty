@@ -1,7 +1,7 @@
 use chrono::{DateTime, Datelike};
 
 mod accounting;
-pub use accounting::{AccountAdmission, AccountPublication};
+pub use accounting::{AccountAdmission, AccountPublication, PinChange};
 mod certificate;
 pub use certificate::PasskeyCertificate;
 use cpsd::{

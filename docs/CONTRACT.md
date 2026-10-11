@@ -208,3 +208,12 @@ join before closing CRLT's async runtime. Cancelled shutdown waiters cannot
 abandon that join; late possibly committed operations require reconciliation.
 The generic constructor remains an explicit drain-only path. Graceful drain
 budgets do not promise hard operating-system cleanup timing.
+
+`change_pin` selects a currently restricted schema field under the Policy guard,
+retains Membership's exact pending change through the same native account worker,
+and consumes its sealed completed-spend result under the original pin CAS. The
+host supplies the real session's exclusive expiry and the same live observed
+clock as Membership; the original receipt expiry cannot extend session authority.
+Current Policy/passport bounds remain held through commit. The host must recheck
+the exact session after return; a possibly committed late result is reconciled
+by reading the existing pin, never by spending again.
