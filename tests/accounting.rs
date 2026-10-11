@@ -8,7 +8,29 @@ use cmty::{
 use data_encoding::BASE64URL_NOPAD as B64;
 use ed25519_dalek::{Signer, SigningKey};
 use sha2::{Digest, Sha256};
+use std::sync::Arc;
 use support::*;
+
+// The fixture host's actual clock and exclusive session lifetime. These owner
+// boundary tests install no native service and cannot authorize a proof.
+struct Session(Clock);
+impl AccountSession for Session {
+    fn valid_until(&self) -> u64 {
+        EXPIRY
+    }
+    fn check(&self, observed: u64) -> cmty::Result<()> {
+        if clbs::Clock::now(&self.0)
+            .ok()
+            .and_then(|now| u64::try_from(now).ok())
+            == Some(observed)
+            && observed < EXPIRY
+        {
+            Ok(())
+        } else {
+            Err(Error::Time)
+        }
+    }
+}
 
 fn ledger_policy() -> AccountLedgerPolicy {
     AccountLedgerPolicy {
@@ -170,9 +192,11 @@ async fn real_passport_member_policy_and_device_project_the_same_bound_grant() {
         Err(Error::Reconcile)
     ));
     let wire = signed_status(grant, &SigningKey::from_bytes(&[13; 32]));
+    let auth = Arc::new(f.auth.authentication);
+    let session: Arc<dyn AccountSession> = Arc::new(Session(f.clock.clone()));
     assert!(matches!(
         f.engine
-            .account(&f.auth.authentication, wire.clone(), NOW)
+            .account(auth.clone(), wire.clone(), NOW, session.clone())
             .await,
         Err(Error::AccountUnavailable)
     ));
@@ -191,13 +215,15 @@ async fn real_passport_member_policy_and_device_project_the_same_bound_grant() {
             _ => grant.community_id = "another.community".into(),
         }
         assert!(matches!(
-            f.engine.account(&f.auth.authentication, changed, NOW).await,
+            f.engine
+                .account(auth.clone(), changed, NOW, session.clone())
+                .await,
             Err(Error::Membership)
         ));
     }
     f.engine.policy().lock().await.bump_epoch().await.unwrap();
     assert!(matches!(
-        f.engine.account(&f.auth.authentication, wire, NOW).await,
+        f.engine.account(auth, wire, NOW, session).await,
         Err(Error::Membership)
     ));
 }

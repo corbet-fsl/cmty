@@ -1,6 +1,8 @@
 //! Original accounting composition under current Policy and member authority.
 use super::*;
 use cgts::{AccountServiceRequest, AccountServiceResponse};
+mod authority;
+pub use authority::AccountSession;
 mod lifecycle;
 mod pin_change;
 mod succession;
@@ -96,9 +98,10 @@ where
     /// The Balance service retains the live clock used during proof verification.
     pub async fn account(
         &self,
-        auth: &ckyh::Authentication,
+        auth: std::sync::Arc<ckyh::Authentication>,
         request: AccountServiceRequest,
         now: u64,
+        session: std::sync::Arc<dyn AccountSession>,
     ) -> Result<AccountServiceResponse>
     where
         R: Send + 'static,
@@ -106,18 +109,22 @@ where
         K: Send + 'static,
     {
         check_time(now)?;
+        session.check(now)?;
+        if now >= session.valid_until() {
+            return Err(Error::Time);
+        }
         self.flush_revocations(now).await?;
         let mut policy = self.policy.clone().lock_owned().await;
         let configuration = self.snapshot_locked(&policy, now).await?;
         let snapshot = policy.verified_settings(now).await.map_err(policy_error)?;
-        let row = self.membership.resume(auth).await.map_err(member_error)?;
+        let row = self.membership.resume(&auth).await.map_err(member_error)?;
         let (facts, lease) =
             cplc::MembershipSource::membership(&self.membership, row.subject(), now)
                 .await
                 .map_err(|_| Error::Membership)?;
         // Revalidate the exact passkey after acquiring the member queue. This
         // read does not acquire a second lease or manufacture a credential.
-        let current = self.membership.resume(auth).await.map_err(member_error)?;
+        let current = self.membership.resume(&auth).await.map_err(member_error)?;
         if current.subject() != facts.member
             || facts.community != community_text(&self.community)?
             || facts.state != crbk::MembershipState::Admitted
@@ -162,8 +169,21 @@ where
             action: "community.account",
             now: now as i64,
         };
+        let authority = std::sync::Arc::new(authority::MemberCommit::new(
+            self.membership.clone(),
+            auth,
+            session,
+            authority::State {
+                lease,
+                policy,
+                snapshot: configuration,
+                grant: grant.clone(),
+                observed: now,
+                valid: true,
+            },
+        ));
         self.gates
-            .account(context, pseudonym, request, (lease, policy))
+            .account_authorized(context, pseudonym, request, authority)
             .await
             .map_err(|error| match error {
                 cgts::Error::Disabled => Error::AccountUnavailable,

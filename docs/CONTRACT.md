@@ -256,3 +256,14 @@ Cancellation, expiry or unknown cleanup withholds the answer and never restores
 the consumed nonce. No source identity, role history or response cache is added
 to root storage. The host retains its actual session owner through synchronous
 response publication; a copied expiry alone is not session authority.
+
+Native member accounting requires the exact authenticated key and a retained
+`AccountSession` supplied by the actual host session owner. Community retains
+its Policy lock and opaque Membership source lease through the original native
+worker. At the same database's existing writer-held commit decision it checks
+current read-only Policy state, passkey/member/device facts, both membership and
+account legal actions, and the original session/grant/cohort lifetimes. All final
+owner reads remain in the native clock's sampled second. Session invalidation
+must survive request cancellation and must not reacquire the outer Community
+lock. The host keeps the asynchronous runtime and database alive until native
+workers join. Status uses this boundary too; it does not qualify a ZK proof.

@@ -1,7 +1,7 @@
 use chrono::{DateTime, Datelike};
 
 mod accounting;
-pub use accounting::{AccountAdmission, AccountPublication, PinChange};
+pub use accounting::{AccountAdmission, AccountPublication, AccountSession, PinChange};
 mod certificate;
 mod root_board;
 mod root_issuance;

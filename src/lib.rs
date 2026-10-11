@@ -10,8 +10,8 @@ pub mod storage;
 mod types;
 
 pub use community::{
-    AccountAdmission, AccountPublication, Admission, Challenge, Community, Config, Parts,
-    PasskeyCertificate, PinChange, RootBoardChallenge, RootBoardIssuer, RootBoardSession,
+    AccountAdmission, AccountPublication, AccountSession, Admission, Challenge, Community, Config,
+    Parts, PasskeyCertificate, PinChange, RootBoardChallenge, RootBoardIssuer, RootBoardSession,
     VerifiedPassport,
 };
 pub use types::*;

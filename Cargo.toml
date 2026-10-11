@@ -19,7 +19,7 @@ cmbr = { git = "https://git.corbet.ch/corbet-libs/cmbr", branch = "main" }
 cgts = { git = "https://git.corbet.ch/corbet-libs/cgts", branch = "main" }
 chrono = { version = "0.4.45", default-features = false, features = ["std"] }
 cplc = { git = "https://git.corbet.ch/corbet-libs/cplc", branch = "main" }
-tokio = { version = "1", features = ["sync", "time"] }
+tokio = { version = "1", features = ["rt", "sync", "time"] }
 crlt = { git = "https://git.corbet.ch/corbet-foss/crlt", branch = "main" }
 cpsd = { git = "https://git.corbet.ch/corbet-foss/cpsd", branch = "main" }
 crbk = { git = "https://git.corbet.ch/corbet-foss/crbk", branch = "main" }
