@@ -10,7 +10,7 @@ struct Config {
     directory: PathBuf,
     manifest_sha256: String,
 }
-pub(super) fn verifier() -> NativeAccountVerifier {
+pub(crate) fn verifier() -> NativeAccountVerifier {
     let root = PathBuf::from(
         std::env::var_os("CBLC_PROOF_DIRECTORY")
             .expect("enrollment owner tests require original authenticated native artifacts"),

@@ -98,27 +98,7 @@ where
         &self,
         clock: impl Fn() -> u64 + Send + Sync + 'static,
     ) -> Result<EnrollmentPublication> {
-        let mut observed = 0;
-        let now = host_time(&clock, &mut observed)?;
-        self.flush_revocations(now).await?;
-        host_time(&clock, &mut observed)?;
-        let policy = self.policy.clone().lock_owned().await;
-        let now = host_time(&clock, &mut observed)?;
-        let snapshot = self.snapshot_locked(&policy, now).await?;
-        let now = host_time(&clock, &mut observed)?;
-        let expected = authority::current_enrollment(&policy, &snapshot, now).await?;
-        host_time(&clock, &mut observed)?;
-        let current: Arc<dyn CommitAuthority> = Arc::new(PublisherCommit {
-            runtime: tokio::runtime::Handle::current(),
-            clock,
-            state: Mutex::new(PublisherState {
-                policy,
-                snapshot,
-                expected: expected.clone(),
-                observed,
-                valid: true,
-            }),
-        });
+        let (current, expected) = self.capture_checkpoint(clock).await?;
         let (response, _) = self
             .gates
             .account_host(
@@ -161,6 +141,87 @@ where
         // The receipt is historical. Do not imply an additional target authority
         // observation after acknowledgement or renew its original interval.
         Ok(publication)
+    }
+
+    /// Retrieve the original common public object. None publishes the actual
+    /// current slot; Some reads ONLY installed retained history or absence.
+    /// Same-slot frozen context is never renewed G1 or target authority.
+    pub async fn account_checkpoint(
+        &self,
+        slot: Option<u64>,
+        clock: impl Fn() -> u64 + Send + Sync + 'static,
+    ) -> Result<Option<EnrollmentPublication>> {
+        let Some(slot) = slot else {
+            return self.publish_account_checkpoint(clock).await.map(Some);
+        };
+        let (current, _) = self.capture_checkpoint(clock).await?;
+        let (response, current) = self
+            .gates
+            .account_host(cgts::HostRequest::EnrollmentCheckpoint { slot }, current)
+            .await
+            .map_err(host_error)?;
+        let cgts::HostResponse::EnrollmentCheckpoint(publication) = response else {
+            return Err(Error::Reconcile);
+        };
+        // The same held Policy returns from the worker. Do not reacquire its
+        // outer mutex or treat these public bytes as an installation receipt.
+        let owned = Arc::try_unwrap(current).map_err(|_| Error::Reconcile)?;
+        let state = owned.state.into_inner().map_err(|_| Error::Reconcile)?;
+        if !state.valid {
+            return Err(Error::Reconcile);
+        }
+        let mut observed = state.observed;
+        let now = host_time(&owned.clock, &mut observed)?;
+        ensure_unchanged(
+            &state.snapshot,
+            &self.snapshot_locked(&state.policy, now).await?,
+        )?;
+        let expected = authority::current_enrollment(&state.policy, &state.snapshot, now).await?;
+        if !same_expectation(&expected, &state.expected)
+            || now
+                >= state
+                    .snapshot
+                    .valid_until
+                    .min(state.snapshot.passport.valid_until)
+            || host_time(&owned.clock, &mut observed)? != now
+        {
+            return Err(Error::Reconcile);
+        }
+        Ok(publication)
+    }
+
+    async fn capture_checkpoint<Clock>(
+        &self,
+        clock: Clock,
+    ) -> Result<(
+        Arc<PublisherCommit<R, P, K, Clock>>,
+        cgts::EnrollmentExpected,
+    )>
+    where
+        Clock: Fn() -> u64 + Send + Sync + 'static,
+    {
+        let mut observed = 0;
+        let now = host_time(&clock, &mut observed)?;
+        self.flush_revocations(now).await?;
+        host_time(&clock, &mut observed)?;
+        let policy = self.policy.clone().lock_owned().await;
+        let now = host_time(&clock, &mut observed)?;
+        let snapshot = self.snapshot_locked(&policy, now).await?;
+        let now = host_time(&clock, &mut observed)?;
+        let expected = authority::current_enrollment(&policy, &snapshot, now).await?;
+        host_time(&clock, &mut observed)?;
+        let current = Arc::new(PublisherCommit {
+            runtime: tokio::runtime::Handle::current(),
+            clock,
+            state: Mutex::new(PublisherState {
+                policy,
+                snapshot,
+                expected: expected.clone(),
+                observed,
+                valid: true,
+            }),
+        });
+        Ok((current, expected))
     }
 }
 
@@ -249,4 +310,12 @@ where
         state.valid = true;
         Ok(())
     }
+}
+
+fn same_expectation(a: &cgts::EnrollmentExpected, b: &cgts::EnrollmentExpected) -> bool {
+    a.trust.community_id == b.trust.community_id
+        && a.trust.policy_digest == b.trust.policy_digest
+        && a.trust.policy_keys.to_cbor() == b.trust.policy_keys.to_cbor()
+        && a.policy_epoch == b.policy_epoch
+        && a.passport_policy_digest == b.passport_policy_digest
 }

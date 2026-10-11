@@ -5,8 +5,10 @@ use super::*;
 use cmty::cgts::cblc::{enrollment::*, storage::MemoryStore};
 #[path = "enrollment/cuts.rs"]
 mod cuts;
+#[path = "enrollment/history.rs"]
+mod history;
 #[path = "enrollment/native.rs"]
-mod native;
+pub(super) mod native;
 
 type LiveClock = Box<dyn Fn() -> u64 + Send>;
 
