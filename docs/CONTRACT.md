@@ -192,6 +192,15 @@ escape. Ordinary credential issuance and pre-admit errors keep their original
 behavior. Retrying uses the actual committed membership class; it never invents
 a no-effect outcome or resets the original member/ledger.
 
+`tune_account_waiting_period` is a trusted host operation on that same worker,
+never a member request or serialized administrative command. It requires the
+explicit expected tuning revision and operator-selected seconds. Community holds
+the actual Policy guard across the native operation, then rechecks current
+configuration and live exclusive deadlines before returning its durable revision.
+Failures after a possibly committed tuning report reconciliation; the host must
+observe the same ledger rather than recreate it. Positive tune/reload/reopen
+qualification belongs to the actual native host journey.
+
 The native host installs `with_native_account_service` and retains the exact
 `account_shutdown` handle outside Community, Policy and member locks. It fences
 host requests first, then awaits mandatory native cancellation and same-worker

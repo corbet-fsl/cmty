@@ -1,6 +1,7 @@
 //! Original accounting composition under current Policy and member authority.
 use super::*;
 use cgts::{AccountServiceRequest, AccountServiceResponse};
+mod lifecycle;
 
 /// Admission requesting Policy's original account grant for one already
 /// authorized device. Global cohort metadata always comes from Community.

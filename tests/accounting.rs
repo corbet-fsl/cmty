@@ -276,3 +276,16 @@ async fn host_publication_requires_configured_period_and_the_actual_native_owner
         Err(Error::AccountUnavailable)
     ));
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn trusted_waiting_tuning_refuses_without_the_same_account_owner() {
+    let f = fixture(EXPIRY, EXPIRY).await;
+    assert!(matches!(
+        f.engine.tune_account_waiting_period(0, 100, || NOW).await,
+        Err(Error::AccountUnavailable)
+    ));
+    assert!(matches!(
+        f.engine.tune_account_waiting_period(0, 100, || 0).await,
+        Err(Error::Time)
+    ));
+}
