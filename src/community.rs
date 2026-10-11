@@ -467,6 +467,22 @@ where
             .may(&snapshot, subject, ADMISSION_ACTION, &checked, now)
             .await
             .map_err(policy_error)?;
+        // Device authorization is checked before any admission commit: a refusal
+        // here changes nothing, while the same failure after the commit would only
+        // be reportable as uncertainty.
+        let authorized = self
+            .membership
+            .current_device_keys(auth)
+            .await
+            .map_err(member_error)?;
+        if admission.devices.is_empty()
+            || admission
+                .devices
+                .iter()
+                .any(|key| !authorized.contains(key))
+        {
+            return Err(Error::Membership);
+        }
         let request = cmbr::AdmissionRequest {
             authentication: auth,
             policy: &policy,
