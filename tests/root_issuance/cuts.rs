@@ -1,6 +1,5 @@
 //! Controls after the genuine root SQLite compare-and-consume has succeeded.
 use super::*;
-use cmty::storage::Storage;
 use cpsd::{ChallengeRecord, ChallengeStore, Timestamp};
 use std::sync::atomic::{AtomicU8, AtomicUsize, Ordering};
 use tokio::sync::Notify;

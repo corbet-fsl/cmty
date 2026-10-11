@@ -1,3 +1,5 @@
+// Each test binary uses a different subset of the shared fixtures.
+#![allow(dead_code)]
 use std::sync::{
     Arc,
     atomic::{AtomicI64, Ordering},
