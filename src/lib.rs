@@ -10,7 +10,8 @@ pub mod storage;
 mod types;
 
 pub use community::{
-    Admission, Challenge, Community, Config, Parts, PasskeyCertificate, VerifiedPassport,
+    AccountAdmission, Admission, Challenge, Community, Config, Parts, PasskeyCertificate,
+    VerifiedPassport,
 };
 pub use types::*;
 /// Exact protocol types of the composed facades.
@@ -40,6 +41,12 @@ pub enum Error {
     /// Invalid/expired policy or policy changed during this attempt.
     #[error("policy unavailable or changed")]
     Policy,
+    /// No original account service was configured for this community.
+    #[error("account service unavailable")]
+    AccountUnavailable,
+    /// An account effect may be unknown; reconcile through original Status.
+    #[error("account outcome requires reconciliation")]
+    Reconcile,
     /// Signing failed or returned inconsistent authenticated claims.
     #[error("credential signing failed")]
     Signing,

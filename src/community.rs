@@ -1,5 +1,7 @@
 use chrono::{DateTime, Datelike};
 
+mod accounting;
+pub use accounting::AccountAdmission;
 mod certificate;
 pub use certificate::PasskeyCertificate;
 use cpsd::{
@@ -93,7 +95,7 @@ pub struct Community<S: Storage, M, L, C, G, A, R, P, K> {
     verifier: Verifier<S::Challenges>,
     membership: cmbr::Membership<M, L, C>,
     gates: cgts::Gatekeeper<G, A>,
-    policy: Mutex<cplc::Policy<R, P, K>>,
+    policy: std::sync::Arc<Mutex<cplc::Policy<R, P, K>>>,
     config: std::sync::RwLock<Config>,
 }
 
@@ -138,7 +140,7 @@ where
             verifier: Verifier::new(store, issuer_keys)?,
             membership: parts.membership,
             gates: parts.gates,
-            policy: Mutex::new(parts.policy),
+            policy: std::sync::Arc::new(Mutex::new(parts.policy)),
             config: std::sync::RwLock::new(config),
         })
     }
@@ -251,16 +253,48 @@ where
         user: ckyh::Uuid,
         now: u64,
     ) -> Result<(ckyh::CreationChallengeResponse, cmbr::PendingRegistration)> {
+        self.begin_registration_for(passport, user, None, now).await
+    }
+
+    /// Bind the original creation reference to this fresh first registration.
+    /// The seed is public provenance, not a holder secret or member authority.
+    pub async fn begin_initial_registration(
+        &self,
+        passport: VerifiedPassport,
+        user: ckyh::Uuid,
+        seed: [u8; 32],
+        now: u64,
+    ) -> Result<(ckyh::CreationChallengeResponse, cmbr::PendingRegistration)> {
+        self.begin_registration_for(passport, user, Some(seed), now)
+            .await
+    }
+
+    async fn begin_registration_for(
+        &self,
+        passport: VerifiedPassport,
+        user: ckyh::Uuid,
+        seed: Option<[u8; 32]>,
+        now: u64,
+    ) -> Result<(ckyh::CreationChallengeResponse, cmbr::PendingRegistration)> {
         if passport.community != self.community || passport.verified_at != now {
             return Err(Error::Passport);
         }
         if !passport.policy.unchanged(&self.snapshot(now).await?) {
             return Err(Error::Policy);
         }
-        self.membership
-            .begin_registration(user, &passport.member_id)
-            .await
-            .map_err(member_error)
+        match seed {
+            Some(seed) => {
+                self.membership
+                    .begin_initial_registration(user, &passport.member_id, seed)
+                    .await
+            }
+            None => {
+                self.membership
+                    .begin_registration(user, &passport.member_id)
+                    .await
+            }
+        }
+        .map_err(member_error)
     }
 
     /// Begin another passkey for the authenticated membership, without approval.
@@ -327,6 +361,23 @@ where
             cgts::Context<'_>,
         ) -> cgts::Result<Vec<cgts::CheckedGate>>,
     ) -> Result<Outcome> {
+        self.finish_selected(rng, challenge, presentation, (admission, None), now, checks)
+            .await
+    }
+
+    async fn finish_selected<T: RngCore + CryptoRng>(
+        &self,
+        rng: &mut T,
+        challenge: &Challenge,
+        presentation: &Presentation,
+        selection: (Admission<'_>, Option<[u8; 32]>),
+        now: u64,
+        checks: impl AsyncFnOnce(
+            &cgts::Gatekeeper<G, A>,
+            cgts::Context<'_>,
+        ) -> cgts::Result<Vec<cgts::CheckedGate>>,
+    ) -> Result<Outcome> {
+        let (admission, account_device) = selection;
         let passport = self.verify(rng, challenge, presentation, now).await?;
         let snapshot = {
             let mut policy = self.policy.lock().await;
@@ -424,23 +475,20 @@ where
         ensure_unchanged(&passport.policy, &self.snapshot_locked(&policy, now).await?)?;
         // A cmbr commit can precede a signing failure. No bytes escape on failure;
         // retries start with a new presentation and do not change member class.
+        let request = || cplc::CredentialRequest {
+            subject: crbk::Subject {
+                id: admitted.subject(),
+                membership: admitted.state().membership(),
+            },
+            handle: handle.display(),
+            schema_version,
+            snapshot: &snapshot,
+            gates: &checked,
+            pins: &pins,
+            devices: admission.devices,
+        };
         let cose = policy
-            .issue(
-                &self.membership,
-                cplc::CredentialRequest {
-                    subject: crbk::Subject {
-                        id: admitted.subject(),
-                        membership: admitted.state().membership(),
-                    },
-                    handle: handle.display(),
-                    schema_version,
-                    snapshot: &snapshot,
-                    gates: &checked,
-                    pins: &pins,
-                    devices: admission.devices,
-                },
-                now,
-            )
+            .issue(&self.membership, request(), now)
             .await
             .map_err(issuance_error)?;
         let verified = policy
@@ -478,7 +526,33 @@ where
             valid_until: verified.valid_until(),
             key_id: verified.key_id().as_bytes().to_vec(),
         };
-        Ok(Outcome::Issued(Box::new(IssuedCredential { claims, cose })))
+        let account = match account_device {
+            Some(device) => Some(
+                policy
+                    .issue_account_grant(
+                        &self.membership,
+                        request(),
+                        device,
+                        cplc::AccountGrantContext {
+                            passport_policy_digest: passport.policy.passport.digest(),
+                            passport_valid_until: passport
+                                .policy
+                                .passport
+                                .valid_until
+                                .min(passport.policy.valid_until),
+                        },
+                        now,
+                    )
+                    .await
+                    .map_err(issuance_error)?,
+            ),
+            None => None,
+        };
+        Ok(Outcome::Issued(Box::new(IssuedCredential {
+            claims,
+            cose,
+            account,
+        })))
     }
 
     /// Retain revoked passkey IDs and publish a conservative community epoch

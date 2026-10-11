@@ -157,3 +157,18 @@ single-use state to its initiating session. A passkey ecosystem is a device;
 there is no manual key approval or recovery identity. Removing one passkey keeps
 access through the remaining keys; losing every key permanently releases the
 membership under NO RETURN.
+
+
+The optional accounting flow uses Policy's original signed v3 grant, requested
+through `AccountAdmission`/`finish_account_with`. Ordinary admission returns no
+account grant. The full authenticated PassportPolicy (epoch, original expiry,
+length-prefixed sorted gate names) is hashed using its original
+`cmty.passport-policy.v1` domain; no member-provided or descriptor-derived cohort
+is substituted. Policy derives the grant's actual community epoch, authorized
+device and Balance policy digest from the same retained admission inputs.
+`account` revalidates current passkey, admitted member, selected device, exact
+pseudonym, community epoch, complete cohort digest and each original expiry under
+Policy/member leases. The original worker retains those leases through native
+completion and caller cancellation. Missing service refuses, and an uncertain
+native/storage effect requires original Status reconciliation. No global gate
+facts, account payload history or alternate ledger are persisted by Community.
