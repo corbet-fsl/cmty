@@ -25,6 +25,23 @@ cargo clippy --locked --all-targets -- -D warnings
 echo "STAGE: licenses"
 cargo metadata --locked --format-version 1 | python3 -c 'import json,sys; d=json.load(sys.stdin); json.dump([{k:p.get(k) for k in ("name","version","license","source")} for p in d["packages"]],sys.stdout,indent=2)' > dependency-licenses.json
 echo "STAGE: test"
+# Genuine original native artifacts are test inputs, not member/account proofs.
+# Reuse only the independently pinned retained producer; never provision runtimes.
+fixture_cache_root="${CI_CACHE_ROOT:-$HOME/.cache}"
+fixture_snapshot="$(mktemp -d)"
+trap 'rm -rf -- "$fixture_snapshot"' EXIT
+CBLC_BB="$(python3 -B .ci/check-record-fixture.py \
+  --directory "$fixture_cache_root/ccid-cached/08a9478e457e604aa31f9a54/release-artifacts/gather-record-fixture" \
+  --source d6014acbef63f4cd0929b20091884dd422421fc3 \
+  --metadata-sha256 7270351d40c1ed49b1499ec82e59449e6d28ca715d5590485dee56e7ef757ff2 \
+  --output "$fixture_snapshot/record")"
+CBLC_PROOF_DIRECTORY="$(python3 -B .ci/check-account-fixture.py \
+  --directory "$fixture_cache_root/ccid-cached/08a9478e457e604aa31f9a54/release-artifacts/native-startup-fixture" \
+  --source d6014acbef63f4cd0929b20091884dd422421fc3 \
+  --metadata-sha256 1d86bceb4b1366254dfbb7f4a2b8a5687550a8e8eb5e61d41d509a99fd2f39ad \
+  --record-manifest "$fixture_snapshot/record/manifest.json" \
+  --output "$fixture_snapshot/account")"
+export CBLC_BB CBLC_PROOF_DIRECTORY
 cargo test --locked
 
 echo "STAGE: coverage-checker-tests"
