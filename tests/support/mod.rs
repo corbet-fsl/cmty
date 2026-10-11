@@ -16,6 +16,8 @@ use ed25519_dalek::{Signer, SigningKey};
 use webauthn_authenticator_rs::{AuthenticatorBackend, softtoken::SoftToken};
 
 mod creation;
+// Each test binary uses a different subset of the shared fixtures.
+#[allow(unused_imports)]
 pub use creation::{Session, bootstrap, creation_invitation, founder_invitation};
 
 pub const NOW: u64 = 1_800_000_000 / 86_400 * 86_400;
