@@ -213,3 +213,32 @@ pub async fn bootstrap<S: Storage>(
         cmbr::CommunityPhase::Active
     );
 }
+
+/// Sign a FounderAdmin entitlement through the actual target Policy for this
+/// still-joining member. Nothing is initialized or committed by issuing it.
+pub async fn founder_invitation<S: Storage>(
+    engine: &Engine<S>,
+    authentication: &ckyh::Authentication,
+    now: u64,
+    until: u64,
+) -> Vec<u8> {
+    let row = engine.membership().resume(authentication).await.unwrap();
+    let community = std::str::from_utf8(engine.community().as_bytes()).unwrap();
+    let receipt = cvch::receipt_id("fixture-founder");
+    let binding = cvch::member_binding(&receipt, row.subject().as_bytes());
+    let invitation = cvch::role::Invitation {
+        id: "fixture-founder",
+        community,
+        member_binding: &binding,
+        purpose: cvch::role::Purpose::FounderAdmin,
+        issued_at: now,
+        valid_until: until,
+    };
+    engine
+        .policy()
+        .lock()
+        .await
+        .issue_role_invitation(&invitation)
+        .await
+        .unwrap()
+}
