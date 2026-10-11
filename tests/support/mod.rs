@@ -124,7 +124,11 @@ pub struct Fixture<S: Storage> {
 }
 
 pub async fn open(url: &str, token: &str) -> crlt::Db {
-    let db = crlt::Db::open(crlt::Config::new(url, token)).await.unwrap();
+    let mut config = crlt::Config::new(url, token);
+    // Final authority reads use a second connection while the owner retains
+    // the original write transaction. A one-connection pool must refuse.
+    config.max_connections = 2;
+    let db = crlt::Db::open(config).await.unwrap();
     let mut schemas = cmbr::SCHEMAS.to_vec();
     schemas.extend([
         ("cgts", cgts::SCHEMA),
