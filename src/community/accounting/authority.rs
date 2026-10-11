@@ -22,6 +22,7 @@ pub(super) struct State<R, P, K> {
     pub(super) grant: AdmissionGrant,
     pub(super) observed: u64,
     pub(super) valid: bool,
+    pub(super) enrollment: Option<cgts::EnrollmentExpected>,
 }
 
 pub(super) struct MemberCommit<M, L, C, R, P, K> {
@@ -124,6 +125,19 @@ where
                 {
                     return Err(Error::Membership);
                 }
+                if let Some(expected) = &state.enrollment {
+                    let current =
+                        current_enrollment(&state.policy, &state.snapshot, observed).await?;
+                    if current.trust.community_id != expected.trust.community_id
+                        || current.trust.policy_digest != expected.trust.policy_digest
+                        || current.trust.policy_keys.to_cbor()
+                            != expected.trust.policy_keys.to_cbor()
+                        || current.policy_epoch != expected.policy_epoch
+                        || current.passport_policy_digest != expected.passport_policy_digest
+                    {
+                        return Err(Error::Policy);
+                    }
+                }
                 // The captured owned Policy lock also excludes every actual
                 // Community global-cohort update. Session invalidation is separate.
                 self.session.check(observed)?;
@@ -134,4 +148,151 @@ where
         state.valid = true;
         Ok(())
     }
+}
+
+pub(super) struct Prepared {
+    pub(super) settings: crbk::Snapshot,
+    pub(super) subject: String,
+    pub(super) pseudonym: cpsd::Pseudonym,
+    pub(super) authority: Arc<dyn CommitAuthority>,
+    pub(super) expected: Option<cgts::EnrollmentExpected>,
+}
+
+impl<S, M, L, C, G, A, R, P, K> Community<S, M, L, C, G, A, R, P, K>
+where
+    S: Storage,
+    M: cmbr::Storage + Send + Sync + 'static,
+    L: clbs::Verifier + Send + Sync + 'static,
+    C: clbs::Clock + Send + Sync + 'static,
+    G: cgts::Storage,
+    A: cgts::LegalVeto,
+    R: crbk::Storage + Send + 'static,
+    P: cplc::Storage + Send + 'static,
+    K: csgn::Store + Send + 'static,
+{
+    pub(super) async fn prepare_account_member(
+        &self,
+        auth: Arc<ckyh::Authentication>,
+        grant: &AdmissionGrant,
+        now: u64,
+        session: Arc<dyn AccountSession>,
+        enrollment: bool,
+    ) -> Result<Prepared> {
+        check_time(now)?;
+        session.check(now)?;
+        if now >= session.valid_until() {
+            return Err(Error::Time);
+        }
+        self.flush_revocations(now).await?;
+        let mut policy = self.policy.clone().lock_owned().await;
+        let configuration = self.snapshot_locked(&policy, now).await?;
+        let snapshot = policy.verified_settings(now).await.map_err(policy_error)?;
+        let row = self.membership.resume(&auth).await.map_err(member_error)?;
+        let (facts, lease) =
+            cplc::MembershipSource::membership(&self.membership, row.subject(), now)
+                .await
+                .map_err(|_| Error::Membership)?;
+        // Revalidate the exact passkey after acquiring the member queue. This
+        // read does not acquire a second lease or manufacture a credential.
+        let current = self.membership.resume(&auth).await.map_err(member_error)?;
+        if current.subject() != facts.member
+            || facts.community != community_text(&self.community)?
+            || facts.state != crbk::MembershipState::Admitted
+            || facts.lease_end <= now
+        {
+            return Err(Error::Membership);
+        }
+        let bytes = data_encoding::HEXLOWER
+            .decode(current.subject().as_bytes())
+            .map_err(|_| Error::Membership)?;
+        let pseudonym = cpsd::Pseudonym::from_bytes(&bytes).map_err(|_| Error::Membership)?;
+        let device: [u8; 32] = data_encoding::BASE64URL_NOPAD
+            .decode(grant.chat_public_key.as_bytes())
+            .map_err(|_| Error::Membership)?
+            .try_into()
+            .map_err(|_| Error::Membership)?;
+        if grant.community_id != facts.community
+            || grant.pseudonym != current.subject()
+            || grant.policy_epoch != snapshot.settings().policy_epoch
+            || grant.passport_policy_digest
+                != data_encoding::BASE64URL_NOPAD.encode(&configuration.passport.digest())
+            || !facts.authorized_devices.contains(&device)
+            || grant.issued_at > now
+            || grant.expires_at <= now
+            || grant.expires_at > facts.lease_end
+            || grant.expires_at > snapshot.valid_until()
+            || grant.expires_at > configuration.valid_until
+            || grant.expires_at > configuration.passport.valid_until
+        {
+            return Err(Error::Membership);
+        }
+        let settings = snapshot.settings().clone();
+        let subject = current.subject().to_owned();
+        let expected = if enrollment {
+            Some(current_enrollment(&policy, &configuration, now).await?)
+        } else {
+            None
+        };
+        let authority = std::sync::Arc::new(MemberCommit::new(
+            self.membership.clone(),
+            auth,
+            session,
+            State {
+                lease,
+                policy,
+                snapshot: configuration,
+                grant: grant.clone(),
+                observed: now,
+                valid: true,
+                enrollment: expected.clone(),
+            },
+        ));
+        Ok(Prepared {
+            settings,
+            subject,
+            pseudonym,
+            authority,
+            expected,
+        })
+    }
+}
+
+pub(super) async fn current_enrollment<R, P, K>(
+    policy: &cplc::Policy<R, P, K>,
+    snapshot: &PolicySnapshot,
+    now: u64,
+) -> Result<cgts::EnrollmentExpected>
+where
+    R: crbk::Storage,
+    P: cplc::Storage,
+    K: csgn::Store,
+{
+    // The actual Policy verifies its retained full publication under current
+    // epoch/counter and validates the owner format before returning these bytes.
+    let bytes = policy
+        .balance_publication(now)
+        .await
+        .map_err(policy_error)?
+        .ok_or(Error::AccountUnavailable)?;
+    let ring = policy.key_ring().map_err(policy_error)?;
+    let signed = ring
+        .verify(&bytes, csgn::Kind::SettingsSnapshot, now)
+        .map_err(policy_error)?;
+    let material: cgts::cblc::publication::PublicVerifierMaterial =
+        serde_json::from_slice(signed.payload()).map_err(policy_error)?;
+    material
+        .validate_at(&snapshot.rules.community, now)
+        .map_err(policy_error)?;
+    if material.policy_epoch != snapshot.rules.policy_epoch {
+        return Err(Error::Policy);
+    }
+    Ok(cgts::EnrollmentExpected {
+        trust: cgts::cblc::admission::AdmissionTrust {
+            community_id: snapshot.rules.community.clone(),
+            policy_digest: data_encoding::BASE64URL_NOPAD.encode(&material.admission_policy_digest),
+            policy_keys: ring.clone(),
+        },
+        policy_epoch: snapshot.rules.policy_epoch,
+        passport_policy_digest: data_encoding::BASE64URL_NOPAD.encode(&snapshot.passport.digest()),
+    })
 }

@@ -1,5 +1,7 @@
 //! Genuine G1 admission and original Policy grant projection/currentness checks.
 //! These tests do not install a native account service or claim proof acceptance.
+#[path = "accounting/enrollment.rs"]
+mod enrollment;
 mod support;
 use cmty::{
     cgts::cblc::{accounting::*, accounting_ledger::*, accounting_service::*, admission::*},

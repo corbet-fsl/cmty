@@ -2,6 +2,7 @@
 use super::*;
 use cgts::{AccountServiceRequest, AccountServiceResponse};
 mod authority;
+mod enrollment;
 pub use authority::AccountSession;
 mod lifecycle;
 mod pin_change;
@@ -108,34 +109,6 @@ where
         P: Send + 'static,
         K: Send + 'static,
     {
-        check_time(now)?;
-        session.check(now)?;
-        if now >= session.valid_until() {
-            return Err(Error::Time);
-        }
-        self.flush_revocations(now).await?;
-        let mut policy = self.policy.clone().lock_owned().await;
-        let configuration = self.snapshot_locked(&policy, now).await?;
-        let snapshot = policy.verified_settings(now).await.map_err(policy_error)?;
-        let row = self.membership.resume(&auth).await.map_err(member_error)?;
-        let (facts, lease) =
-            cplc::MembershipSource::membership(&self.membership, row.subject(), now)
-                .await
-                .map_err(|_| Error::Membership)?;
-        // Revalidate the exact passkey after acquiring the member queue. This
-        // read does not acquire a second lease or manufacture a credential.
-        let current = self.membership.resume(&auth).await.map_err(member_error)?;
-        if current.subject() != facts.member
-            || facts.community != community_text(&self.community)?
-            || facts.state != crbk::MembershipState::Admitted
-            || facts.lease_end <= now
-        {
-            return Err(Error::Membership);
-        }
-        let bytes = data_encoding::HEXLOWER
-            .decode(current.subject().as_bytes())
-            .map_err(|_| Error::Membership)?;
-        let pseudonym = cpsd::Pseudonym::from_bytes(&bytes).map_err(|_| Error::Membership)?;
         let grant = match &request {
             AccountServiceRequest::RegisterRecordRecipient { grant, .. }
             | AccountServiceRequest::Apply { grant, .. }
@@ -143,47 +116,17 @@ where
             | AccountServiceRequest::Obligations { grant, .. }
             | AccountServiceRequest::Status { grant, .. } => grant,
         };
-        let device: [u8; 32] = data_encoding::BASE64URL_NOPAD
-            .decode(grant.chat_public_key.as_bytes())
-            .map_err(|_| Error::Membership)?
-            .try_into()
-            .map_err(|_| Error::Membership)?;
-        if grant.community_id != facts.community
-            || grant.pseudonym != current.subject()
-            || grant.policy_epoch != snapshot.settings().policy_epoch
-            || grant.passport_policy_digest
-                != data_encoding::BASE64URL_NOPAD.encode(&configuration.passport.digest())
-            || !facts.authorized_devices.contains(&device)
-            || grant.issued_at > now
-            || grant.expires_at <= now
-            || grant.expires_at > facts.lease_end
-            || grant.expires_at > snapshot.valid_until()
-            || grant.expires_at > configuration.valid_until
-            || grant.expires_at > configuration.passport.valid_until
-        {
-            return Err(Error::Membership);
-        }
+        let prepared = self
+            .prepare_account_member(auth, grant, now, session, false)
+            .await?;
         let context = cgts::Context {
-            snapshot: snapshot.settings(),
-            subject: current.subject(),
+            snapshot: &prepared.settings,
+            subject: &prepared.subject,
             action: "community.account",
             now: now as i64,
         };
-        let authority = std::sync::Arc::new(authority::MemberCommit::new(
-            self.membership.clone(),
-            auth,
-            session,
-            authority::State {
-                lease,
-                policy,
-                snapshot: configuration,
-                grant: grant.clone(),
-                observed: now,
-                valid: true,
-            },
-        ));
         self.gates
-            .account_authorized(context, pseudonym, request, authority)
+            .account_authorized(context, prepared.pseudonym, request, prepared.authority)
             .await
             .map_err(|error| match error {
                 cgts::Error::Disabled => Error::AccountUnavailable,
