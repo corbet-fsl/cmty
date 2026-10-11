@@ -77,10 +77,25 @@ fn signed_status(grant: AdmissionGrant, device: &SigningKey) -> AccountServiceRe
     }
 }
 
+#[test]
+fn original_signed_v1_material_cannot_fill_required_admission_digest() {
+    let fixture: serde_json::Value =
+        serde_json::from_slice(include_bytes!("fixtures/balance-material.json")).unwrap();
+    let ring = csgn::KeyRing::from_cbor(
+        &serde_json::from_value::<Vec<u8>>(fixture["configuredFixtureRing"].clone()).unwrap(),
+    )
+    .unwrap();
+    let bytes: Vec<u8> = serde_json::from_value(fixture["signed"].clone()).unwrap();
+    let signed = ring
+        .verify(&bytes, csgn::Kind::SettingsSnapshot, 200)
+        .unwrap();
+    assert!(serde_json::from_slice::<cplc::PublicVerifierMaterial>(signed.payload()).is_err());
+}
+
 async fn publish_original_balance(f: &Fixture<cmty::storage::LibsqlStorage>) -> AdmissionTrust {
     let mut policy = f.engine.policy().lock().await;
     let fixture: serde_json::Value =
-        serde_json::from_slice(include_bytes!("fixtures/balance-material.json")).unwrap();
+        serde_json::from_slice(include_bytes!("fixtures/balance-material-v2.json")).unwrap();
     let mut material: cplc::PublicVerifierMaterial =
         serde_json::from_value(fixture["material"].clone()).unwrap();
     material.community = "example".into();
@@ -95,7 +110,8 @@ async fn publish_original_balance(f: &Fixture<cmty::storage::LibsqlStorage>) -> 
     material.policy_epoch = version.epoch;
     let trust = AdmissionTrust {
         community_id: "example".into(),
-        policy_digest: B64.encode(&material.policy_digest),
+        // Independent immutable admission configuration of the native producer.
+        policy_digest: B64.encode(&[3; 32]),
         policy_keys: policy.key_ring().unwrap().clone(),
     };
     policy.publish_balance(material, NOW).await.unwrap();
