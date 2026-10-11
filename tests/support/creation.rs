@@ -53,7 +53,7 @@ pub async fn creation_invitation<S: Storage>(
         community,
         member_binding: &binding,
         purpose: cvch::role::Purpose::BootstrapRoot,
-        issued_at: now,
+        issued_at: cplc::day(now),
         valid_until: until,
     };
     let (bytes, ring) = {
@@ -231,7 +231,7 @@ pub async fn founder_invitation<S: Storage>(
         community,
         member_binding: &binding,
         purpose: cvch::role::Purpose::FounderAdmin,
-        issued_at: now,
+        issued_at: cplc::day(now),
         valid_until: until,
     };
     engine
