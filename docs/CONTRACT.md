@@ -191,3 +191,11 @@ Balance/grant failure). The member commit is not rolled back and no grant bytes
 escape. Ordinary credential issuance and pre-admit errors keep their original
 behavior. Retrying uses the actual committed membership class; it never invents
 a no-effect outcome or resets the original member/ledger.
+
+The native host installs `with_native_account_service` and retains the exact
+`account_shutdown` handle outside Community, Policy and member locks. It fences
+host requests first, then awaits mandatory native cancellation and same-worker
+join before closing CRLT's async runtime. Cancelled shutdown waiters cannot
+abandon that join; late possibly committed operations require reconciliation.
+The generic constructor remains an explicit drain-only path. Graceful drain
+budgets do not promise hard operating-system cleanup timing.

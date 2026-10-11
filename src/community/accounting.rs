@@ -54,6 +54,39 @@ where
         Ok(self)
     }
 
+    /// Install the actual native service with its same proof cancellation and
+    /// join owner. The host retains `account_shutdown` outside Community locks.
+    pub async fn with_native_account_service<Clock>(
+        mut self,
+        service: cgts::cblc::accounting_service::AccountService<
+            cgts::cblc::accounting_service::NativeAccountVerifier,
+            Clock,
+        >,
+    ) -> Result<Self>
+    where
+        Clock: Fn() -> u64 + Send + 'static,
+    {
+        self.gates = self
+            .gates
+            .with_native_account_service(service)
+            .await
+            .map_err(|error| match error {
+                cgts::Error::Scope => Error::Scope,
+                cgts::Error::Storage => Error::Storage,
+                _ => Error::Gate,
+            })?;
+        Ok(self)
+    }
+
+    /// Host-only teardown handle; retain before handling requests and use it
+    /// without acquiring a Community, Policy or member lock during shutdown.
+    pub fn account_shutdown(&self) -> Result<cgts::AccountShutdown> {
+        self.gates.account_shutdown().map_err(|error| match error {
+            cgts::Error::Disabled => Error::AccountUnavailable,
+            _ => Error::Storage,
+        })
+    }
+
     /// Forward to the one configured Gatekeeping account service using current
     /// member authority, independently of every identity in the request body.
     /// The Balance service retains the live clock used during proof verification.
