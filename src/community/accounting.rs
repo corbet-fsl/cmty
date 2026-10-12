@@ -298,6 +298,7 @@ fn host_time(clock: &impl Fn() -> u64, floor: &mut u64) -> Result<u64> {
     Ok(now)
 }
 fn host_error(error: cgts::Error) -> Error {
+    eprintln!("DIAG host_error {error:?}");
     match error {
         cgts::Error::Disabled => Error::AccountUnavailable,
         _ => Error::Reconcile,
