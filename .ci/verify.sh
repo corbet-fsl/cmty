@@ -31,9 +31,9 @@ fixture_cache_root="${CI_CACHE_ROOT:-$HOME/.cache}"
 fixture_snapshot="$(mktemp -d)"
 trap 'rm -rf -- "$fixture_snapshot"' EXIT
 CBLC_BB="$(python3 -B .ci/check-record-fixture.py \
-  --directory "$fixture_cache_root/ccid-cached/08a9478e457e604aa31f9a54/release-artifacts/gather-record-fixture" \
-  --source d6014acbef63f4cd0929b20091884dd422421fc3 \
-  --metadata-sha256 7270351d40c1ed49b1499ec82e59449e6d28ca715d5590485dee56e7ef757ff2 \
+  --directory "$fixture_cache_root/ccid-cached/08a9478e457e604aa31f9a54/release-artifacts/gather-record-fixture-retained/1bd79f81e63ee0f387cfbd99c527cbbfcc4f93b5eda3dab9c7d8c81cccf4e147" \
+  --source 1589a3a40557f74e0d1bc8bd0e594cd64845c840 \
+  --metadata-sha256 1bd79f81e63ee0f387cfbd99c527cbbfcc4f93b5eda3dab9c7d8c81cccf4e147 \
   --output "$fixture_snapshot/record")"
 CBLC_PROOF_DIRECTORY="$(python3 -B .ci/check-account-fixture.py \
   --directory "$fixture_cache_root/ccid-cached/08a9478e457e604aa31f9a54/release-artifacts/native-startup-fixture" \
