@@ -100,9 +100,7 @@ mod tests {
             notice_seconds: 0,
             policy_epoch: 1,
         };
-        let result = shared
-            .append_checked("c", None, change, &mut Guard)
-            .await;
+        let result = shared.append_checked("c", None, change, &mut Guard).await;
         assert!(matches!(result, Err(crbk::Error::Conflict)));
         assert!(shared.0.0.load(std::sync::atomic::Ordering::SeqCst));
     }
