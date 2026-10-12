@@ -652,11 +652,6 @@ impl<S: Storage> Fixture<S> {
             kind: clbs::OrderKind::Legal {
                 authority: "test-authority".into(),
             },
-            scope: clbs::Scope::All,
-            period: clbs::Period {
-                starts_at: NOW as i64,
-                ends_at: Some((NOW + 3600) as i64),
-            },
         };
         let proof = SigningKey::from_bytes(&[7; 32])
             .sign(&order.signing_payload().unwrap())
@@ -665,7 +660,6 @@ impl<S: Storage> Fixture<S> {
         clbs::Gate::new(
             cgts::legal_storage::LibsqlStore::new(&self.db, "example").unwrap(),
             Authority,
-            self.clock.clone(),
         )
         .record_legal(&clbs::SignedOrder { order, proof })
         .await

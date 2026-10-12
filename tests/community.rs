@@ -1852,11 +1852,6 @@ async fn finish_vetoes_gate_check_after_transient_legal_record() {
                     kind: clbs::OrderKind::Legal {
                         authority: "test-authority".into(),
                     },
-                    scope: clbs::Scope::All,
-                    period: clbs::Period {
-                        starts_at: NOW as i64,
-                        ends_at: Some((NOW + 3600) as i64),
-                    },
                 };
                 let proof_bytes = SigningKey::from_bytes(&[7; 32])
                     .sign(&order.signing_payload().unwrap())
@@ -1865,7 +1860,6 @@ async fn finish_vetoes_gate_check_after_transient_legal_record() {
                 clbs::Gate::new(
                     cgts::legal_storage::LibsqlStore::new(&db, "example").unwrap(),
                     Authority,
-                    clock,
                 )
                 .record_legal(&clbs::SignedOrder {
                     order,
