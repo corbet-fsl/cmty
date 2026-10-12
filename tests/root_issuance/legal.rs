@@ -21,7 +21,7 @@ fn order(subject: String, action: &str) -> clbs::SignedOrder {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn signed_begin_restriction_refuses_while_actual_admin_membership_remains_current() {
+async fn signed_begin_restriction_releases_the_named_admin_and_refuses_begin() {
     let mut w = fixture::world().await;
     let subject = w.holder.pseudonym(w.source.community()).to_hex();
     let legal = clbs::Gate::new(
@@ -32,15 +32,12 @@ async fn signed_begin_restriction_refuses_while_actual_admin_membership_remains_
         .record_legal(&order(subject, "root_board_issue_begin"))
         .await
         .unwrap();
-    assert_eq!(
-        w.source
-            .membership()
-            .role(&w.login.authentication)
-            .await
-            .unwrap()
-            .role(),
-        crgs::Role::Admin
-    );
+    // The order names this admin's own pseudonym, so the enrollment is released
+    // at once and the role lookup is refused as well.
+    assert!(matches!(
+        w.source.membership().role(&w.login.authentication).await,
+        Err(cmbr::Error::Restricted)
+    ));
     let session = RootBoardSession {
         authentication: &w.login.authentication,
         valid_until: NOW + 120,
@@ -90,9 +87,10 @@ async fn independent_finish_restriction_after_real_nonce_consumption_withholds_b
     cut.resume.notify_one();
     assert!(matches!(finish.await, Err(cmty::Error::Membership)));
     cut.mode.store(cuts::NORMAL, Ordering::SeqCst);
+    // The consumed nonce and the released enrollment each refuse a retry.
     assert!(matches!(
         w.finish(&challenge, &request).await,
-        Err(cmty::Error::Passport)
+        Err(cmty::Error::Passport | cmty::Error::Membership)
     ));
     assert_eq!(cut.consumed.load(Ordering::SeqCst), 1);
 }
