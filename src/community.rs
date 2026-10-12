@@ -766,6 +766,7 @@ where
 }
 
 fn member_error(error: cmbr::Error) -> Error {
+    eprintln!("DIAG member_error {error:?}");
     match error {
         cmbr::Error::Identity => Error::Scope,
         _ => Error::Membership,
@@ -773,12 +774,14 @@ fn member_error(error: cmbr::Error) -> Error {
 }
 
 /// Shared redaction for policy-unavailable call sites.
-fn policy_error<E>(_: E) -> Error {
+fn policy_error<E: std::fmt::Debug>(e: E) -> Error {
+    eprintln!("DIAG policy_error {e:?}");
     Error::Policy
 }
 
 /// Shared redaction for signing-failure call sites.
-fn signing_error<E>(_: E) -> Error {
+fn signing_error<E: std::fmt::Debug>(e: E) -> Error {
+    eprintln!("DIAG signing_error {e:?}");
     Error::Signing
 }
 

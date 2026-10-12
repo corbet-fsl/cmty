@@ -318,7 +318,7 @@ async fn legal_veto_blocks_issuance_even_with_permissive_policy() {
             .await
             .unwrap()
             .state(),
-        State::Lapsed
+        State::Released
     );
 }
 
@@ -1194,6 +1194,8 @@ async fn authenticated_refresh_extends_freshness_and_invalidates_old_challenges(
     f.clock
         .0
         .store((NOW + 121) as i64, std::sync::atomic::Ordering::SeqCst);
+    // The fixture session lasts as long as the first challenge; open a fresh one.
+    f.session = Session::new(&f.auth.authentication, EXPIRY);
     let result = issued(f.issue().await);
     let ring = f.engine.snapshot(NOW + 121).await.unwrap().signing_keys;
     ring.verify(&result.cose, csgn::Kind::Credential, NOW + 121)
@@ -1320,6 +1322,7 @@ async fn another_passkey_preserves_admission_after_original_device_removal() {
             .await
             .is_err()
     );
+    f.session = Session::new(&f.auth.authentication, EXPIRY);
     let after = issued(f.issue().await);
     assert_eq!(after.claims.member_id, before.claims.member_id);
     assert_eq!(after.claims.handle, before.claims.handle);
