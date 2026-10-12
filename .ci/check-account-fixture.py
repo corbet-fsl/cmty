@@ -69,7 +69,7 @@ def check(directory, expected_source, expected_metadata, record_manifest, output
         raise ValueError("Original account artifact manifest pin differs")
     manifest = json.loads(manifest_raw)
     if (manifest["version"] != 1 or manifest["accountingMode"] != "account-state-v2"
-            or manifest["compiler"] != "1.0.0-beta.26" or manifest["backend"] != "5.0.0"
+            or manifest["compiler"] != "1.0.0-beta.26" or manifest["backend"] != "5.2.1"
             or manifest["verifierTarget"] != "noir-recursive"
             or manifest["hashScheme"] != "poseidon2-bn254-fixed-128-v1"
             or metadata["files"]["account/circuit.json"]["sha256"] != manifest["circuitSha256"]
