@@ -31,14 +31,14 @@ fixture_cache_root="${CI_CACHE_ROOT:-$HOME/.cache}"
 fixture_snapshot="$(mktemp -d)"
 trap 'rm -rf -- "$fixture_snapshot"' EXIT
 CBLC_BB="$(python3 -B .ci/check-record-fixture.py \
-  --directory "$fixture_cache_root/ccid-cached/08a9478e457e604aa31f9a54/release-artifacts/gather-record-fixture" \
-  --source d6014acbef63f4cd0929b20091884dd422421fc3 \
-  --metadata-sha256 7270351d40c1ed49b1499ec82e59449e6d28ca715d5590485dee56e7ef757ff2 \
+  --directory "$fixture_cache_root/ccid-cached/08a9478e457e604aa31f9a54/release-artifacts/gather-record-fixture-retained/23cf333ef4c1bb9acc401e3cf448528978d960fe793dbcc50da7a1ef54f6b212" \
+  --source 62324819462d67a39f71e41216967a2b1e1600ce \
+  --metadata-sha256 23cf333ef4c1bb9acc401e3cf448528978d960fe793dbcc50da7a1ef54f6b212 \
   --output "$fixture_snapshot/record")"
 CBLC_PROOF_DIRECTORY="$(python3 -B .ci/check-account-fixture.py \
-  --directory "$fixture_cache_root/ccid-cached/08a9478e457e604aa31f9a54/release-artifacts/native-startup-fixture" \
-  --source d6014acbef63f4cd0929b20091884dd422421fc3 \
-  --metadata-sha256 1d86bceb4b1366254dfbb7f4a2b8a5687550a8e8eb5e61d41d509a99fd2f39ad \
+  --directory "$fixture_cache_root/ccid-cached/08a9478e457e604aa31f9a54/release-artifacts/native-startup-fixture-retained/f0731b7c62ff034c79965fa0c9016bf16b3fd5c2e38f32409cfa00682acb1407" \
+  --source 62324819462d67a39f71e41216967a2b1e1600ce \
+  --metadata-sha256 f0731b7c62ff034c79965fa0c9016bf16b3fd5c2e38f32409cfa00682acb1407 \
   --record-manifest "$fixture_snapshot/record/manifest.json" \
   --output "$fixture_snapshot/account")"
 export CBLC_BB CBLC_PROOF_DIRECTORY
