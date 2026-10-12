@@ -1932,8 +1932,8 @@ async fn foreign_material() -> (Challenge, VerifiedPassport, crlt::Db, tempfile:
         storage::LibsqlStorage::new(&db, cpsd::CommunityId::new("other").unwrap(), 32).unwrap(),
         vec![holder.issuer().clone()],
         Parts {
-            membership: members(&db, clock),
-            gates: gates(&db),
+            membership: members_in(&db, clock, "other"),
+            gates: gates_in(&db, "other"),
             policy,
         },
         config(EXPIRY, EXPIRY),

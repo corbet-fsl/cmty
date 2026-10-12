@@ -15,7 +15,7 @@ use zeroize::Zeroizing;
 #[path = "settlement/native.rs"]
 mod native;
 
-const REALM: &str = "community.example";
+const REALM: &str = "community-example";
 const AT: u64 = 114;
 const PERIOD_KEY: &str = "record/window";
 const QUOTA_KEY: &str = "outcomes/allowance";

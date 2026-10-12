@@ -306,7 +306,7 @@ async fn host_publication_requires_configured_period_and_the_actual_native_owner
             crbk::Change {
                 rulebook: rules,
                 announced_at: NOW as i64,
-                effective_at: NOW as i64,
+                effective_at: (NOW + 1) as i64,
                 notice_seconds: 0,
                 policy_epoch: 2,
             },
@@ -316,11 +316,11 @@ async fn host_publication_requires_configured_period_and_the_actual_native_owner
     // Neither bootstrap nor full G2 material can be manufactured without the
     // installed original native service; no synthetic empty descriptor escapes.
     assert!(matches!(
-        f.engine.publish_account_material(KEY, || NOW).await,
+        f.engine.publish_account_material(KEY, || NOW + 1).await,
         Err(Error::AccountUnavailable)
     ));
     assert!(matches!(
-        f.engine.publish_account_record(KEY, || NOW).await,
+        f.engine.publish_account_record(KEY, || NOW + 1).await,
         Err(Error::AccountUnavailable)
     ));
 }

@@ -206,7 +206,7 @@ async fn signed_next_effective_policy_shortens_the_original_context() {
         .lock()
         .await
         .schedule_rules(
-            None,
+            Some(1),
             crbk::Change {
                 rulebook: support::rulebook(),
                 announced_at: NOW as i64,
