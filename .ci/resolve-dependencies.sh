@@ -10,5 +10,6 @@ cargo metadata --locked --format-version 1 > dependency-metadata.json
 resolved="$ARTIFACT_ROOT/$CI_COMMIT_SHA/resolve-dependencies"
 mkdir -p "$resolved"
 cp Cargo.lock dependency-metadata.json "$resolved/"
+echo ---LOCK-BEGIN---; cat Cargo.lock; echo ---LOCK-END---
 sha256sum Cargo.lock dependency-metadata.json
 echo 'Resolved inputs only; review exact upstream revisions, commit the lock and run verify.'
