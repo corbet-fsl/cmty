@@ -84,8 +84,8 @@ async fn independent_finish_restriction_after_real_nonce_consumption_withholds_b
         .await
         .unwrap();
     assert!(matches!(
-        legal.check_action(&subject, ADMISSION_ACTION).await,
-        Ok(clbs::State::Green)
+        legal.check(&subject).await,
+        Ok(clbs::State::Red(_))
     ));
     cut.resume.notify_one();
     assert!(matches!(finish.await, Err(cmty::Error::Membership)));
