@@ -798,10 +798,12 @@ async fn competing_signer_fences_issuance_and_consumes_the_presentation() {
     )
     .await
     .unwrap();
-    assert!(matches!(
-        f.finish(&challenge, &proof, NOW).await,
-        Err(Error::Policy) | Err(Error::Signing)
-    ));
+    let diag = f.finish(&challenge, &proof, NOW).await;
+    assert!(
+        matches!(diag, Err(Error::Policy) | Err(Error::Signing)),
+        "DIAG competing {:?}",
+        diag.as_ref().map(|_| ())
+    );
     // The fenced policy itself cannot serve another attempt. Check consumption
     // using a fresh real verifier on the same persistent challenge capability.
     assert!(f.finish(&challenge, &proof, NOW).await.is_err());

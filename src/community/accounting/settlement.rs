@@ -67,6 +67,7 @@ where
         let now = host_time(&clock_observation, &mut floor)?;
         ensure_unchanged(&snapshot, &self.snapshot_locked(&policy, now).await?)?;
         host_time(&clock_observation, &mut floor)?;
+        eprintln!("DIAG settle cfg_comm={:?} snap_comm={:?} cfg_ep={} ver_ep={} snap_ep={} cfg_per={} per={} cfg_q={} q={} issuer_ep_eq={}", config.epoch.community, snapshot.rules.community, config.policy_epoch, version.epoch, snapshot.rules.policy_epoch, config.period_seconds, period.period_seconds, config.quota, quota.quota, issuer.epoch() == &config.epoch);
         if config.epoch.community != snapshot.rules.community
             || config.policy_epoch != version.epoch
             || snapshot.rules.policy_epoch != version.epoch
