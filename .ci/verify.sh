@@ -37,8 +37,8 @@ CBLC_BB="$(python3 -B .ci/check-record-fixture.py \
   --output "$fixture_snapshot/record")"
 CBLC_PROOF_DIRECTORY="$(python3 -B .ci/check-account-fixture.py \
   --directory "$fixture_cache_root/ccid-cached/08a9478e457e604aa31f9a54/release-artifacts/native-startup-fixture" \
-  --source d6014acbef63f4cd0929b20091884dd422421fc3 \
-  --metadata-sha256 1d86bceb4b1366254dfbb7f4a2b8a5687550a8e8eb5e61d41d509a99fd2f39ad \
+  --source 2704809bffed9d9dbe3a4d87c14bd14ba1a59c30 \
+  --metadata-sha256 849d36dbfa5a2712fc7ecafa1a278d4fb9a7cf82f7b5dde4614b630092e51e9c \
   --record-manifest "$fixture_snapshot/record/manifest.json" \
   --output "$fixture_snapshot/account")"
 export CBLC_BB CBLC_PROOF_DIRECTORY
