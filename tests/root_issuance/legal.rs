@@ -1,4 +1,4 @@
-//! Actual action-only legal restrictions without revoking source membership.
+//! Actual permanent legal blocks refuse every root-board issuance step.
 use super::*;
 use ed25519_dalek::{Signer, SigningKey};
 
@@ -11,11 +11,6 @@ fn order(subject: String, action: &str) -> clbs::SignedOrder {
         entered_by: "fixture-authority".into(),
         kind: clbs::OrderKind::Legal {
             authority: "fixture-authority".into(),
-        },
-        scope: clbs::Scope::Actions([action.to_owned()].into()),
-        period: clbs::Period {
-            starts_at: NOW as i64,
-            ends_at: None,
         },
     };
     let proof = SigningKey::from_bytes(&[7; 32])
@@ -32,7 +27,6 @@ async fn signed_begin_restriction_refuses_while_actual_admin_membership_remains_
     let legal = clbs::Gate::new(
         cgts::legal_storage::LibsqlStore::new(&w.source_db, "example").unwrap(),
         support::Authority,
-        w.clock.clone(),
     );
     legal
         .record_legal(&order(subject, "root_board_issue_begin"))
@@ -70,7 +64,6 @@ async fn independent_finish_restriction_after_real_nonce_consumption_withholds_b
     let legal = clbs::Gate::new(
         cgts::legal_storage::LibsqlStore::new(&w.source_db, "example").unwrap(),
         support::Authority,
-        w.clock.clone(),
     );
     let cut = w.cut.clone();
     cut.mode.store(cuts::PAUSE, Ordering::SeqCst);

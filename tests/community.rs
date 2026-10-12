@@ -1832,7 +1832,6 @@ async fn finish_vetoes_gate_check_after_transient_legal_record() {
     // records a real legal order through the real clbs leaf, so the later
     // persistent gate check observes Red while every receipt stays valid.
     let db = f.db.clone();
-    let clock = f.clock.clone();
     let subject = f.passport.pseudonym(&scope()).to_hex();
     let outcome = f
         .engine
