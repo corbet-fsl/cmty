@@ -35,6 +35,7 @@ cvch = { git = "https://git.corbet.ch/corbet-foss/cvch", branch = "main" }
 cgbl = { git = "https://git.corbet.ch/corbet-libs/cgbl.git", branch = "main" }
 cnrl = { git = "https://git.corbet.ch/corbet-foss/cnrl", branch = "main" }
 cgrd = { git = "https://git.corbet.ch/corbet-foss/cgrd", branch = "main" }
+cssr = { git = "https://git.corbet.ch/corbet-foss/cssr", branch = "main" }
 ed25519-dalek = "2.2"
 openssl = "0.10"
 zeroize = "1"
