@@ -798,9 +798,11 @@ async fn competing_signer_fences_issuance_and_consumes_the_presentation() {
     )
     .await
     .unwrap();
+    // Admission commits before the credential is signed, so the fenced signer
+    // leaves an uncertain outcome that the caller must reconcile.
     assert!(matches!(
         f.finish(&challenge, &proof, NOW).await,
-        Err(Error::Policy) | Err(Error::Signing)
+        Err(Error::Reconcile)
     ));
     // The fenced policy itself cannot serve another attempt. Check consumption
     // using a fresh real verifier on the same persistent challenge capability.

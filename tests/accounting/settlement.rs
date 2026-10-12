@@ -210,7 +210,7 @@ fn issuer() -> (SettlementConfig, SettlementIssuer) {
         "epoch": {"purpose":"outcome-deposit-v1", "community":REALM, "epoch":1,
             "valid_from":100_000, "valid_until":200_000,
             "public_key_der":rsa.public_key_to_der().unwrap()},
-        "policyEpoch":1, "periodSeconds":100, "quota":4,
+        "policyEpoch":3, /* the fixture policy epoch after its rulebook and schema installs */ "periodSeconds":100, "quota":4,
         "pendingCapacity":8, "issuanceMembersCapacity":8, "roomEpochs":[]
     }))
     .unwrap();
