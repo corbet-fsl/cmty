@@ -36,51 +36,24 @@ impl cmbr::RoleSession for Session {
     }
 }
 
-/// Derive the recipient from the original genuine enrollment, sign through the
-/// actual target Policy, verify its original ring and initialize the real owner.
+/// Record the creation of the community for the genuinely enrolled creator and
+/// return the creation id that its first-admin admission presents.
 pub async fn creation_invitation<S: Storage>(
     engine: &Engine<S>,
     authentication: &ckyh::Authentication,
-    now: u64,
+    _now: u64,
     until: u64,
-) -> Vec<u8> {
+) -> String {
     let row = engine.membership().resume(authentication).await.unwrap();
-    let community = std::str::from_utf8(engine.community().as_bytes()).unwrap();
-    let receipt = cvch::receipt_id("fixture-first-root");
-    let binding = cvch::member_binding(&receipt, row.subject().as_bytes());
-    let invitation = cvch::role::Invitation {
-        id: "fixture-first-root",
-        community,
-        member_binding: &binding,
-        purpose: cvch::role::Purpose::BootstrapRoot,
-        issued_at: cplc::day(now),
-        valid_until: until,
-    };
-    let (bytes, ring) = {
-        let mut policy = engine.policy().lock().await;
-        let bytes = policy.issue_role_invitation(&invitation).await.unwrap();
-        (bytes, policy.key_ring().unwrap().clone())
-    };
-    let verified = cvch::role::verify(
-        &bytes,
-        &ring,
-        &cvch::role::Context {
-            community,
-            member: row.subject().as_bytes(),
-            purpose: cvch::role::Purpose::BootstrapRoot,
-            now,
-        },
-    )
-    .unwrap();
     assert_eq!(
         engine
             .membership()
-            .initialize_community_creation(&verified, row.subject().as_bytes())
+            .initialize_community_creation("fixture-first-root", row.subject().as_bytes(), until)
             .await
             .unwrap(),
         cmbr::CommunityPhase::Creating
     );
-    bytes
+    "fixture-first-root".to_owned()
 }
 
 /// Establish a separate actual Root using an independently issued real
@@ -206,39 +179,10 @@ pub async fn bootstrap<S: Storage>(
             .unwrap()
             .unwrap()
             .role,
-        crgs::Role::Root
+        crgs::Role::Admin
     );
     assert_eq!(
         engine.membership().community_phase().await.unwrap(),
         cmbr::CommunityPhase::Active
     );
-}
-
-/// Sign a FounderAdmin entitlement through the actual target Policy for this
-/// still-joining member. Nothing is initialized or committed by issuing it.
-pub async fn founder_invitation<S: Storage>(
-    engine: &Engine<S>,
-    authentication: &ckyh::Authentication,
-    now: u64,
-    until: u64,
-) -> Vec<u8> {
-    let row = engine.membership().resume(authentication).await.unwrap();
-    let community = std::str::from_utf8(engine.community().as_bytes()).unwrap();
-    let receipt = cvch::receipt_id("fixture-founder");
-    let binding = cvch::member_binding(&receipt, row.subject().as_bytes());
-    let invitation = cvch::role::Invitation {
-        id: "fixture-founder",
-        community,
-        member_binding: &binding,
-        purpose: cvch::role::Purpose::FounderAdmin,
-        issued_at: cplc::day(now),
-        valid_until: until,
-    };
-    engine
-        .policy()
-        .lock()
-        .await
-        .issue_role_invitation(&invitation)
-        .await
-        .unwrap()
 }

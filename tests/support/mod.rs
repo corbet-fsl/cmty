@@ -20,7 +20,7 @@ use webauthn_authenticator_rs::{AuthenticatorBackend, softtoken::SoftToken};
 mod creation;
 // Each test binary uses a different subset of the shared fixtures.
 #[allow(unused_imports)]
-pub use creation::{Session, bootstrap, creation_invitation, founder_invitation};
+pub use creation::{Session, bootstrap, creation_invitation};
 
 pub const NOW: u64 = 1_800_000_000 / 86_400 * 86_400;
 pub const EXPIRY: u64 = NOW + 90 * 86_400;
@@ -142,7 +142,6 @@ pub async fn open(url: &str, token: &str) -> crlt::Db {
         ("cpsd", storage::SCHEMA),
         ("cmbr-device-keys", cmbr::DEVICE_KEYS_SCHEMA),
         ("cmbr-creation", cmbr::CREATION_SCHEMA),
-        ("cmbr-role-redemption", cmbr::ROLE_REDEMPTION_SCHEMA),
     ]);
     let migrations: Vec<_> = schemas
         .iter()
@@ -560,34 +559,6 @@ impl<S: Storage> Fixture<S> {
                     creation: None,
                 },
                 now,
-            )
-            .await
-    }
-    /// Redeem a FounderAdmin entitlement; `creation` is an extra first-Root
-    /// entitlement that the facade must refuse alongside it.
-    pub async fn finish_founder(
-        &mut self,
-        challenge: &Challenge,
-        proof: &Presentation,
-        invitation: &[u8],
-        creation: Option<&[u8]>,
-        now: u64,
-    ) -> cmty::Result<Outcome> {
-        self.engine
-            .finish_founder_admin_with(
-                &mut self.rng,
-                challenge,
-                proof,
-                Admission {
-                    authentication: &self.auth.authentication,
-                    devices: &DEVICES,
-                    lease: crgs::YearMonth::new(2027, 9).unwrap(),
-                    session: &self.session,
-                    creation,
-                },
-                invitation,
-                now,
-                async |_, _| Ok(Vec::new()),
             )
             .await
     }
