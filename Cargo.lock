@@ -753,7 +753,7 @@ dependencies = [
 [[package]]
 name = "cblc"
 version = "0.0.0"
-source = "git+https://git.corbet.ch/corbet-libs/cblc?branch=main#091a294b6b946e0ce8dfbb9e4571eb5833864724"
+source = "git+https://git.corbet.ch/corbet-libs/cblc?branch=main#e2a00b8b37678f7fc45ea12babd17892d890b950"
 dependencies = [
  "cbcn",
  "cmbl",
@@ -833,7 +833,7 @@ checksum = "f079e83a288787bcd14a6aea84cee5c87a67c5a3e660c30f557a3d24761b3527"
 [[package]]
 name = "cgbl"
 version = "0.0.0"
-source = "git+https://git.corbet.ch/corbet-libs/cgbl.git?branch=main#4ccbe34e81bf50b5ba9802d3fe6414ee9b7adc69"
+source = "git+https://git.corbet.ch/corbet-libs/cgbl.git?branch=main#a5e519f73e986d5cf5a00844c82e77fe92d09694"
 dependencies = [
  "cbcn",
  "ckyh",
@@ -878,7 +878,7 @@ dependencies = [
 [[package]]
 name = "cgts"
 version = "0.0.0"
-source = "git+https://git.corbet.ch/corbet-libs/cgts?branch=main#a771c27d19be601fd744795421de55245d7fc626"
+source = "git+https://git.corbet.ch/corbet-libs/cgts?branch=main#f9e7bb4cd78ef9aa2b32baba9f3945fad22bd5f6"
 dependencies = [
  "cblc",
  "cgrd",
@@ -1059,7 +1059,7 @@ dependencies = [
 [[package]]
 name = "cmbr"
 version = "0.0.0"
-source = "git+https://git.corbet.ch/corbet-libs/cmbr?branch=main#9ae64161d48cd6148cd493a4e8db5aaa848761aa"
+source = "git+https://git.corbet.ch/corbet-libs/cmbr?branch=main#d78d4b1fe8ebd5f5e7761227dbf16623f02d1db3"
 dependencies = [
  "cgrd",
  "cgts",
@@ -1267,7 +1267,7 @@ dependencies = [
 [[package]]
 name = "cplc"
 version = "0.0.0"
-source = "git+https://git.corbet.ch/corbet-libs/cplc?branch=main#c11edebf9b6d60d4efd8b18c58174d4b609036e3"
+source = "git+https://git.corbet.ch/corbet-libs/cplc?branch=main#524953a2f0fc3523cde9c105d493b8e2ef07d5e9"
 dependencies = [
  "cbcn",
  "cblc",
