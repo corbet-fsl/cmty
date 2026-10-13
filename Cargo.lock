@@ -1011,7 +1011,7 @@ dependencies = [
 [[package]]
 name = "cmbr"
 version = "0.0.0"
-source = "git+https://git.corbet.ch/corbet-libs/cmbr?branch=main#03f3d4a972ba7074637a43a80fefe636d9e81452"
+source = "git+https://git.corbet.ch/corbet-libs/cmbr?branch=main#6197371f9712c48cb29eea174883683dffa773b4"
 dependencies = [
  "cgrd",
  "cgts",
