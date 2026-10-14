@@ -753,7 +753,7 @@ dependencies = [
 [[package]]
 name = "cblc"
 version = "0.0.0"
-source = "git+https://git.corbet.ch/corbet-libs/cblc?branch=main#3a839743f60091e018909b31a59bf26cddfc5161"
+source = "git+https://git.corbet.ch/corbet-libs/cblc?branch=main#f349f41d03a6f6240a0c6217005071ba3698e991"
 dependencies = [
  "cbcn",
  "cmbl",
@@ -833,7 +833,7 @@ checksum = "f079e83a288787bcd14a6aea84cee5c87a67c5a3e660c30f557a3d24761b3527"
 [[package]]
 name = "cgbl"
 version = "0.0.0"
-source = "git+https://git.corbet.ch/corbet-libs/cgbl.git?branch=main#b3c0415e68f6bf600e3682d62b253faa1dbc2a7f"
+source = "git+https://git.corbet.ch/corbet-libs/cgbl.git?branch=main#b2a8718aef7421330d0bac3eef2b4491ac9f7a07"
 dependencies = [
  "cbcn",
  "ckyh",
@@ -858,13 +858,14 @@ dependencies = [
 [[package]]
 name = "cgrd"
 version = "0.0.0"
-source = "git+https://git.corbet.ch/corbet-foss/cgrd?branch=main#fabf73fadd927817754b1d2c7d4808a0a9e5a5a2"
+source = "git+https://git.corbet.ch/corbet-foss/cgrd?branch=main#203900ab71428b910092fb9b0ecc632ac483cae4"
 dependencies = [
  "bigdecimal",
  "cpns",
  "crbk",
  "csgn",
  "cshm",
+ "cvch",
  "ed25519-dalek 3.0.0",
  "geographiclib-rs",
  "precis-profiles",
@@ -878,7 +879,7 @@ dependencies = [
 [[package]]
 name = "cgts"
 version = "0.0.0"
-source = "git+https://git.corbet.ch/corbet-libs/cgts?branch=main#b37c0640d79994c80613f5ed7a23a900093cf091"
+source = "git+https://git.corbet.ch/corbet-libs/cgts?branch=main#9700650b0e5e164d9acb2e3bc50101f8f6b4eb95"
 dependencies = [
  "cblc",
  "cgrd",
@@ -1059,7 +1060,7 @@ dependencies = [
 [[package]]
 name = "cmbr"
 version = "0.0.0"
-source = "git+https://git.corbet.ch/corbet-libs/cmbr?branch=main#6b3eed5b59fa2395ebfe0cf6a3076fd5558b651e"
+source = "git+https://git.corbet.ch/corbet-libs/cmbr?branch=main#45eee09f6f6a3cc074878233a6337d2748112e69"
 dependencies = [
  "cgrd",
  "cgts",
@@ -1267,7 +1268,7 @@ dependencies = [
 [[package]]
 name = "cplc"
 version = "0.0.0"
-source = "git+https://git.corbet.ch/corbet-libs/cplc?branch=main#29832188e1f83d39df80ff188491150e5c331315"
+source = "git+https://git.corbet.ch/corbet-libs/cplc?branch=main#d1a060cd12fb32fab1085569fb5c6ab159eabf68"
 dependencies = [
  "cbcn",
  "cblc",
@@ -1594,7 +1595,7 @@ dependencies = [
 [[package]]
 name = "cvch"
 version = "0.2.1"
-source = "git+https://git.corbet.ch/corbet-foss/cvch?branch=main#a0f153cf194f6513cf6e60eefa087d906616fc8f"
+source = "git+https://git.corbet.ch/corbet-foss/cvch?branch=main#781cfff36a78af9539c835041f8f9d42b5ed9492"
 dependencies = [
  "cfbk",
  "csgn",
