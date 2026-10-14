@@ -13,6 +13,7 @@ python3 -B .ci/test-resolve-dependencies.py
 
 rustc --version
 echo "STAGE: fmt"
+bash .ci/update-our-crates.sh
 cargo fmt --all --check
 echo "STAGE: pins-test"
 node --test .github/check-pins.test.mjs
