@@ -1,6 +1,5 @@
 //! Real source-role issuance into the existing same-holder root credential.
-//! Role setup provisions an existing register role after actual admission;
-//! it does not qualify the separate initial root-voucher bootstrap journey.
+//! Role setup provisions an existing register role after actual admission.
 #[path = "root_issuance/cuts.rs"]
 mod cuts;
 #[path = "root_issuance/fixture.rs"]
