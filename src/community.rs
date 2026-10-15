@@ -302,6 +302,28 @@ where
         .map_err(member_error)
     }
 
+    /// JOIN by device key (one-confirmation model). The host has verified one confirmation
+    /// stamp for this exact key under the passport's pseudonym; this checks the passport like
+    /// a registration does and binds `device_key` as the member's first ACTIVE key. A retry
+    /// with the same key returns the same member.
+    pub async fn join_with_device_key(
+        &self,
+        passport: VerifiedPassport,
+        user: ckyh::Uuid,
+        device_key: [u8; 32],
+        now: u64,
+    ) -> Result<cmbr::Record> {
+        if passport.community != self.community || passport.verified_at != now {
+            return Err(Error::Passport);
+        }
+        let policy = self.policy.lock().await;
+        self.passport_current(&passport, &policy, now).await?;
+        self.membership
+            .join_with_device_key(user, &passport.member_id, device_key)
+            .await
+            .map_err(member_error)
+    }
+
     /// Begin another passkey for the authenticated membership, without approval.
     /// The door owns session lifetime and keeps the pending state in that session.
     pub async fn begin_additional_registration(
