@@ -81,10 +81,10 @@ issuance until acknowledged. An offline consumer needs fresh epoch/revocation
 metadata; cryptographic verification alone cannot recall a previously issued
 credential. Already valid credentials remain bounded by their signed expiry.
 
-Global suspension is separate: after authenticating cgbl's signed public status,
+A global block is separate: after authenticating cgbl's signed public status,
 the service calls `update_passport_policy`. This refuses epoch rollback and
 serializes updates with local signing. Changed global metadata invalidates old
-challenges; fresh challenges reject old-epoch passports. A suspended person
+challenges; fresh challenges reject old-epoch passports. A blocked person
 cannot get a replacement global passport, so community renewal fails closed.
 The global service never needs a community membership list. Issuer key updates,
 canonical routing and configuration freshness remain service responsibilities.
@@ -125,7 +125,7 @@ Tests compose real BBS proofs, authenticated wallet requests, software WebAuthn,
 cnrl enrolment, retained/transient gates, v2 pins, crbk decisions and Ed25519 COSE
 through all three facades on libSQL. They cover replay/races, policy/schema/key
 changes, wrong identity/context, legal veto, adaptive expiry, probation, lapse,
-release, restart, revocation forwarding and global suspension blocking renewal.
+release, restart, revocation forwarding and a global block stopping renewal.
 Optional Turso checks skip without explicitly supplied disposable credentials.
 GitHub Actions checks formatting, Clippy, tests and a single exact revision of
 every Corbet dependency. Cargo runs only on CI.

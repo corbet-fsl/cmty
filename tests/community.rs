@@ -981,7 +981,7 @@ async fn slow_gate_releases_policy_mutex_and_changed_policy_refuses_its_receipt(
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn global_suspension_prevents_a_real_holder_from_renewing_in_the_community() {
+async fn global_block_prevents_a_real_holder_from_renewing_in_the_community() {
     // Only the external provider boundary is a fixture. Global issuer, blind
     // wallet, signed status, community proof, membership and signing are real.
     struct Provider;

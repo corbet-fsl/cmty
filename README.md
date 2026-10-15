@@ -26,7 +26,7 @@ all passkeys permanently prevents rejoining this community: **NO RETURN**.
 Call `flush_revocations` after membership revocation/maintenance and distribute
 the published epoch; `begin` also drains pending events. Authenticate cgbl's
 public status before `update_passport_policy`; changed global epochs reject old
-passports and prevent suspended holders from renewing community credentials.
+passports and prevent blocked holders from renewing community credentials.
 Slow gate checks run outside the policy mutex. Each facade retains its own
 per-member/CAS failure handling. No credential, login history or raw gate data
 is stored here.
@@ -59,7 +59,7 @@ their LGPL linking exception. No GPL/AGPL-only dependency is added.
 
 CI runs formatting, Clippy, real integration tests and dependency
 checks. Cargo is never run on the workstation. Tests cover BBS, WebAuthn, pins,
-probation, expiry, replay, policy changes, revocations, suspension and restart.
+probation, expiry, replay, policy changes, revocations, blocks and restart.
 Optional Turso tests require both `TURSO_URL` and `TURSO_TOKEN` for an explicitly
 authorized disposable database.
 
