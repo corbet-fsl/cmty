@@ -1109,9 +1109,9 @@ async fn global_block_prevents_a_real_holder_from_renewing_in_the_community() {
     issued(f.issue().await);
     let (old_challenge, old_proof) = f.proof().await;
     global
-        .suspend(
+        .burn(
             &who,
-            cgbl::Suspension::Permanent(cgbl::PermanentReason::SelfBan),
+            cgbl::Burn::Permanent(cgbl::PermanentReason::SelfBan),
             NOW,
         )
         .await
