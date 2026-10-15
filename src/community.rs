@@ -303,14 +303,16 @@ where
     }
 
     /// JOIN by device key (one-confirmation model). The host has verified one confirmation
-    /// stamp for this exact key under the passport's pseudonym; this checks the passport like
-    /// a registration does and binds `device_key` as the member's first ACTIVE key. A retry
-    /// with the same key returns the same member.
+    /// stamp for this exact key and `seed` under the passport's pseudonym; this checks the
+    /// passport like a registration does and binds `device_key` as the member's first ACTIVE
+    /// key holding `seed`, the opaque initial creation commitment. A retry with the same key
+    /// and seed returns the same member.
     pub async fn join_with_device_key(
         &self,
         passport: VerifiedPassport,
         user: ckyh::Uuid,
         device_key: [u8; 32],
+        seed: [u8; 32],
         now: u64,
     ) -> Result<cmbr::Record> {
         if passport.community != self.community || passport.verified_at != now {
@@ -319,7 +321,7 @@ where
         let policy = self.policy.lock().await;
         self.passport_current(&passport, &policy, now).await?;
         self.membership
-            .join_with_device_key(user, &passport.member_id, device_key)
+            .join_with_device_key(user, &passport.member_id, device_key, seed)
             .await
             .map_err(member_error)
     }
