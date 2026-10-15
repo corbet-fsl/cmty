@@ -141,6 +141,7 @@ pub async fn open(url: &str, token: &str) -> crlt::Db {
         ("csgn", csgn::SCHEMA),
         ("cpsd", storage::SCHEMA),
         ("cmbr-device-keys", cmbr::DEVICE_KEYS_SCHEMA),
+        ("cmbr-device-registry", cmbr::DEVICE_REGISTRY_SCHEMA),
         ("cmbr-creation", cmbr::CREATION_SCHEMA),
     ]);
     let migrations: Vec<_> = schemas

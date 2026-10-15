@@ -1011,6 +1011,7 @@ mod tests {
             ("csgn", csgn::SCHEMA),
             ("cpsd", crate::storage::SCHEMA),
             ("cmbr-device-keys", cmbr::DEVICE_KEYS_SCHEMA),
+            ("cmbr-device-registry", cmbr::DEVICE_REGISTRY_SCHEMA),
         ]);
         let migrations: Vec<_> = schemas
             .iter()
