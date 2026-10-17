@@ -492,6 +492,23 @@ where
             Err(_) => return Err(Error::Gate),
         };
         let mut checked = checked;
+        // The recorded creator's verified passport stands in for the new
+        // community's voucher step (L1352); first-admin admission still matches
+        // the exact creation commitment under its own writer.
+        if admission.creation.is_some()
+            && let Some(founding) = cgts::gates::FoundingVoucher::for_snapshot(context.snapshot)
+            && self
+                .membership
+                .is_recorded_creator(auth)
+                .await
+                .map_err(member_error)?
+        {
+            match self.gates.run(context, &founding, &passport.witness).await {
+                Ok(gate) => checked.push(gate),
+                Err(cgts::Error::Vetoed) => return Ok(Outcome::Vetoed),
+                Err(_) => return Err(Error::Gate),
+            }
+        }
         checked.extend(passport.witness.gates(context).map_err(|_| Error::Gate)?);
         let checked = match self.gates.check(context, checked).await {
             Ok(checked) => checked,
