@@ -326,6 +326,28 @@ where
             .map_err(member_error)
     }
 
+    /// The already applied JOIN by device key of the passport's pseudonym: exactly this key
+    /// holding exactly `seed`, still ACTIVE. Read only. The host answers a retried join with it
+    /// when the join's stamp no longer verifies (its cohort ended), after the same passport
+    /// check a join makes; `None` when this join was never applied (a new stamp is needed).
+    pub async fn device_join_applied(
+        &self,
+        passport: VerifiedPassport,
+        device_key: [u8; 32],
+        seed: [u8; 32],
+        now: u64,
+    ) -> Result<Option<cmbr::Record>> {
+        if passport.community != self.community || passport.verified_at != now {
+            return Err(Error::Passport);
+        }
+        let policy = self.policy.lock().await;
+        self.passport_current(&passport, &policy, now).await?;
+        self.membership
+            .device_join_applied(&passport.member_id, device_key, seed)
+            .await
+            .map_err(member_error)
+    }
+
     /// Begin another passkey for the authenticated membership, without approval.
     /// The door owns session lifetime and keeps the pending state in that session.
     pub async fn begin_additional_registration(
