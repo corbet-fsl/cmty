@@ -159,8 +159,13 @@ async fn fixture() -> Fixture {
             1024 * 1024,
         )
         .unwrap()
-        // The public fixture seed whose key the native capture's manifest authenticates.
-        .with_extension_issuer(cssr::certificate::CertificateIssuer::new(&[3; 32]).unwrap())
+        // The public fixture issuer, recorded as the ledger's open issuer key; its
+        // certificates bind the fixture community identity.
+        .with_extension_issuer(
+            cssr::certificate::CertificateIssuer::new(&[3; 32]).unwrap(),
+            [0x1d; 32],
+        )
+        .unwrap()
     })
     .await
     .unwrap();

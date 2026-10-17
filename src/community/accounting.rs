@@ -116,7 +116,14 @@ where
             | AccountServiceRequest::Apply { grant, .. }
             | AccountServiceRequest::ApplyExtended { grant, .. }
             | AccountServiceRequest::Obligations { grant, .. }
+            | AccountServiceRequest::IssueSettlementPass { grant, .. }
             | AccountServiceRequest::Status { grant, .. } => grant,
+            // Anonymous routes bind no member; they never arrive on a member session.
+            AccountServiceRequest::StageSettlement { .. }
+            | AccountServiceRequest::PostObligation { .. }
+            | AccountServiceRequest::CheckVoucherEpoch { .. } => {
+                return Err(Error::Gate);
+            }
         };
         let prepared = self
             .prepare_account_member(auth, grant, now, session, false)
