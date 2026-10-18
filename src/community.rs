@@ -348,6 +348,45 @@ where
             .map_err(member_error)
     }
 
+    /// Stamped pairing, step one: the host verified a confirmation stamp covering exactly
+    /// `device_key` under the passport's pseudonym. Registers the key PENDING (grants nothing).
+    /// An equal retry succeeds.
+    pub async fn add_device_key(
+        &self,
+        passport: VerifiedPassport,
+        device_key: [u8; 32],
+        now: u64,
+    ) -> Result<()> {
+        if passport.community != self.community || passport.verified_at != now {
+            return Err(Error::Passport);
+        }
+        let policy = self.policy.lock().await;
+        self.passport_current(&passport, &policy, now).await?;
+        self.membership
+            .add_device_key(&passport.member_id, device_key)
+            .await
+            .map_err(member_error)
+    }
+
+    /// Stamped pairing, step two: the host verified the activation stamp. Makes the PENDING
+    /// key ACTIVE; idempotent for an already active key.
+    pub async fn activate_device_key(
+        &self,
+        passport: VerifiedPassport,
+        device_key: [u8; 32],
+        now: u64,
+    ) -> Result<()> {
+        if passport.community != self.community || passport.verified_at != now {
+            return Err(Error::Passport);
+        }
+        let policy = self.policy.lock().await;
+        self.passport_current(&passport, &policy, now).await?;
+        self.membership
+            .activate_device_key(&passport.member_id, device_key)
+            .await
+            .map_err(member_error)
+    }
+
     /// Begin another passkey for the authenticated membership, without approval.
     /// The door owns session lifetime and keeps the pending state in that session.
     pub async fn begin_additional_registration(
