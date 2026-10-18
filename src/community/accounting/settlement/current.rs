@@ -62,62 +62,107 @@ where
             .publication
             .as_mut()
             .ok_or(cgts::cblc::Error::Admission)?;
-        if observed < publication.floor
-            || (self.clock)() != observed
-            || observed
-                >= publication
-                    .snapshot
-                    .valid_until
-                    .min(publication.snapshot.passport.valid_until)
-        {
+        // Evaluate at `observed`; the live clock must only not regress.
+        if observed < publication.floor || (self.clock)() < observed {
             return Err(cgts::cblc::Error::Admission);
         }
         self.runtime
             .block_on(async {
-                let policy = &publication.policy;
-                // Original read-only owner methods use the remaining pool reader.
-                // This callback never acquires the outer Community or another writer.
-                let rules = policy.settings(observed).await.map_err(policy_error)?;
-                if rules.community != publication.snapshot.rules.community
-                    || rules.revision != publication.snapshot.rules.revision
-                    || rules.policy_epoch != publication.snapshot.rules.policy_epoch
-                    || rules.content != publication.snapshot.rules.content
-                    || policy.key_ring().map_err(policy_error)?.to_cbor()
-                        != publication.snapshot.signing_keys.to_cbor()
-                    || u64::from(
-                        policy
-                            .schema()
-                            .map_err(policy_error)?
-                            .ok_or(Error::Policy)?
-                            .version,
-                    ) != publication.snapshot.schema_version
-                {
-                    return Err(Error::Policy);
-                }
-                let period = policy
-                    .record_epoch_settings(&publication.period_key, observed)
-                    .await
-                    .map_err(policy_error)?;
-                let quota = policy
-                    .outcome_quota_settings(&self.quota_key, observed)
-                    .await
-                    .map_err(policy_error)?;
-                if period.period_seconds != self.config.period_seconds
-                    || period.period_seconds != publication.period_seconds
-                    || quota.quota != self.config.quota
-                    || rules.policy_epoch != self.config.policy_epoch
-                    || publication.version.epoch != self.config.policy_epoch
-                    || policy.epoch(observed).await.map_err(policy_error)?
-                        != self.config.policy_epoch
-                    || (self.clock)() != observed
-                {
-                    return Err(Error::Policy);
+                self.current_at(publication, observed).await?;
+                if (self.clock)() < observed {
+                    return Err(Error::Time);
                 }
                 Ok(())
             })
             .map_err(|_| cgts::cblc::Error::Admission)?;
         publication.floor = observed;
         state.valid = true;
+        Ok(())
+    }
+
+    fn boundary_crossed(
+        &self,
+        observed: u64,
+        now: u64,
+    ) -> std::result::Result<bool, cgts::cblc::Error> {
+        let mut state = self.state.lock().map_err(|_| cgts::cblc::Error::Storage)?;
+        let valid = state.valid;
+        let publication = state
+            .publication
+            .as_mut()
+            .ok_or(cgts::cblc::Error::Admission)?;
+        if !valid || publication.floor != observed || now < observed {
+            state.valid = false;
+            return Err(cgts::cblc::Error::Admission);
+        }
+        // Every boundary of this schedule (snapshot and passport deadlines,
+        // rule activations, period and quota settings, the epoch) shows as a
+        // different evaluation at `now`. A crossed second without one does not.
+        let crossed = self
+            .runtime
+            .block_on(self.current_at(publication, now))
+            .is_err();
+        if crossed {
+            state.valid = false;
+        } else {
+            publication.floor = now;
+        }
+        Ok(crossed)
+    }
+}
+
+impl<R: crbk::Storage, P: cplc::Storage, K: csgn::Store> Current<R, P, K> {
+    /// The daily owner's decision at one trusted time, against its captured state.
+    async fn current_at(
+        &self,
+        publication: &publication::PublicationState<R, P, K>,
+        at: u64,
+    ) -> Result<()> {
+        if at
+            >= publication
+                .snapshot
+                .valid_until
+                .min(publication.snapshot.passport.valid_until)
+        {
+            return Err(Error::Time);
+        }
+        let policy = &publication.policy;
+        // Original read-only owner methods use the remaining pool reader.
+        // This callback never acquires the outer Community or another writer.
+        let rules = policy.settings(at).await.map_err(policy_error)?;
+        if rules.community != publication.snapshot.rules.community
+            || rules.revision != publication.snapshot.rules.revision
+            || rules.policy_epoch != publication.snapshot.rules.policy_epoch
+            || rules.content != publication.snapshot.rules.content
+            || policy.key_ring().map_err(policy_error)?.to_cbor()
+                != publication.snapshot.signing_keys.to_cbor()
+            || u64::from(
+                policy
+                    .schema()
+                    .map_err(policy_error)?
+                    .ok_or(Error::Policy)?
+                    .version,
+            ) != publication.snapshot.schema_version
+        {
+            return Err(Error::Policy);
+        }
+        let period = policy
+            .record_epoch_settings(&publication.period_key, at)
+            .await
+            .map_err(policy_error)?;
+        let quota = policy
+            .outcome_quota_settings(&self.quota_key, at)
+            .await
+            .map_err(policy_error)?;
+        if period.period_seconds != self.config.period_seconds
+            || period.period_seconds != publication.period_seconds
+            || quota.quota != self.config.quota
+            || rules.policy_epoch != self.config.policy_epoch
+            || publication.version.epoch != self.config.policy_epoch
+            || policy.epoch(at).await.map_err(policy_error)? != self.config.policy_epoch
+        {
+            return Err(Error::Policy);
+        }
         Ok(())
     }
 }

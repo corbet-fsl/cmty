@@ -172,22 +172,33 @@ where
         }
         let mut observed = state.observed;
         let now = host_time(&owned.clock, &mut observed)?;
+        self.slot_current(&state, now).await?;
+        // Evaluated at `now`. A later reading must not regress; only a
+        // scheduled boundary in (now, later] refuses, shown as a different
+        // evaluation at `later`. The caller then restarts the read fresh.
+        let later = host_time(&owned.clock, &mut observed)?;
+        if later != now {
+            self.slot_current(&state, later).await?;
+        }
+        Ok(publication)
+    }
+
+    async fn slot_current(&self, state: &PublisherState<R, P, K>, at: u64) -> Result<()> {
         ensure_unchanged(
             &state.snapshot,
-            &self.snapshot_locked(&state.policy, now).await?,
+            &self.snapshot_locked(&state.policy, at).await?,
         )?;
-        let expected = authority::current_enrollment(&state.policy, &state.snapshot, now).await?;
+        let expected = authority::current_enrollment(&state.policy, &state.snapshot, at).await?;
         if !same_expectation(&expected, &state.expected)
-            || now
+            || at
                 >= state
                     .snapshot
                     .valid_until
                     .min(state.snapshot.passport.valid_until)
-            || host_time(&owned.clock, &mut observed)? != now
         {
             return Err(Error::Reconcile);
         }
-        Ok(publication)
+        Ok(())
     }
 
     async fn capture_checkpoint<Clock>(
@@ -254,54 +265,17 @@ where
 {
     fn check(&self, observed: u64) -> std::result::Result<(), cgts::cblc::Error> {
         let mut state = self.state.lock().map_err(|_| cgts::cblc::Error::Storage)?;
-        if !state.valid || observed < state.observed || (self.clock)() != observed {
+        // Evaluate at `observed`; the live clock must only not regress.
+        if !state.valid || observed < state.observed || (self.clock)() < observed {
             state.valid = false;
             return Err(cgts::cblc::Error::Admission);
         }
         state.valid = false;
         self.runtime
             .block_on(async {
-                if observed
-                    >= state
-                        .snapshot
-                        .valid_until
-                        .min(state.snapshot.passport.valid_until)
-                {
+                publisher_current(&*state, observed).await?;
+                if (self.clock)() < observed {
                     return Err(Error::Time);
-                }
-                let rules = state
-                    .policy
-                    .settings(observed)
-                    .await
-                    .map_err(policy_error)?;
-                if rules.community != state.snapshot.rules.community
-                    || rules.revision != state.snapshot.rules.revision
-                    || rules.policy_epoch != state.snapshot.rules.policy_epoch
-                    || rules.content != state.snapshot.rules.content
-                    || u64::from(
-                        state
-                            .policy
-                            .schema()
-                            .map_err(policy_error)?
-                            .ok_or(Error::Policy)?
-                            .version,
-                    ) != state.snapshot.schema_version
-                    || state.policy.key_ring().map_err(policy_error)?.to_cbor()
-                        != state.snapshot.signing_keys.to_cbor()
-                {
-                    return Err(Error::Policy);
-                }
-                let current =
-                    authority::current_enrollment(&state.policy, &state.snapshot, observed).await?;
-                if current.trust.community_id != state.expected.trust.community_id
-                    || current.trust.policy_digest != state.expected.trust.policy_digest
-                    || current.trust.policy_keys.to_cbor()
-                        != state.expected.trust.policy_keys.to_cbor()
-                    || current.policy_epoch != state.expected.policy_epoch
-                    || current.passport_policy_digest != state.expected.passport_policy_digest
-                    || (self.clock)() != observed
-                {
-                    return Err(Error::Policy);
                 }
                 Ok(())
             })
@@ -310,6 +284,71 @@ where
         state.valid = true;
         Ok(())
     }
+
+    fn boundary_crossed(
+        &self,
+        observed: u64,
+        now: u64,
+    ) -> std::result::Result<bool, cgts::cblc::Error> {
+        let mut state = self.state.lock().map_err(|_| cgts::cblc::Error::Storage)?;
+        if !state.valid || state.observed != observed || now < observed {
+            state.valid = false;
+            return Err(cgts::cblc::Error::Admission);
+        }
+        // Every boundary of this schedule (snapshot and passport deadlines,
+        // rule activations, publication and key windows) shows as a different
+        // evaluation at `now`. A crossed second without one changes nothing.
+        let crossed = self
+            .runtime
+            .block_on(publisher_current(&*state, now))
+            .is_err();
+        if crossed {
+            state.valid = false;
+        } else {
+            state.observed = now;
+        }
+        Ok(crossed)
+    }
+}
+
+/// The publisher's decision at one trusted time, against its captured state.
+async fn publisher_current<R, P, K>(state: &PublisherState<R, P, K>, at: u64) -> Result<()>
+where
+    R: crbk::Storage,
+    P: cplc::Storage,
+    K: csgn::Store,
+{
+    if at
+        >= state
+            .snapshot
+            .valid_until
+            .min(state.snapshot.passport.valid_until)
+    {
+        return Err(Error::Time);
+    }
+    let rules = state.policy.settings(at).await.map_err(policy_error)?;
+    if rules.community != state.snapshot.rules.community
+        || rules.revision != state.snapshot.rules.revision
+        || rules.policy_epoch != state.snapshot.rules.policy_epoch
+        || rules.content != state.snapshot.rules.content
+        || u64::from(
+            state
+                .policy
+                .schema()
+                .map_err(policy_error)?
+                .ok_or(Error::Policy)?
+                .version,
+        ) != state.snapshot.schema_version
+        || state.policy.key_ring().map_err(policy_error)?.to_cbor()
+            != state.snapshot.signing_keys.to_cbor()
+    {
+        return Err(Error::Policy);
+    }
+    let current = authority::current_enrollment(&state.policy, &state.snapshot, at).await?;
+    if !same_expectation(&current, &state.expected) {
+        return Err(Error::Policy);
+    }
+    Ok(())
 }
 
 fn same_expectation(a: &cgts::EnrollmentExpected, b: &cgts::EnrollmentExpected) -> bool {

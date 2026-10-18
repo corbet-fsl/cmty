@@ -88,6 +88,19 @@ async fn services(
     AccountService<NativeAccountVerifier, LiveClock>,
     EnrollmentService<LiveClock>,
 ) {
+    let read = clock.clone();
+    let ledger_clock: LiveClock = Box::new(move || clbs::Clock::now(&read).unwrap() as u64);
+    services_with(trust, publisher_clock, ledger_clock).await
+}
+
+async fn services_with(
+    trust: AdmissionTrust,
+    publisher_clock: LiveClock,
+    ledger_clock: LiveClock,
+) -> (
+    AccountService<NativeAccountVerifier, LiveClock>,
+    EnrollmentService<LiveClock>,
+) {
     tokio::task::spawn_blocking(move || {
         let store = MemoryStore::default();
         let operator = SigningKey::from_bytes(&[9; 32]);
@@ -110,8 +123,6 @@ async fn services(
             operator.clone(),
         )
         .unwrap();
-        let read = clock.clone();
-        let ledger_clock: LiveClock = Box::new(move || clbs::Clock::now(&read).unwrap() as u64);
         let service = AccountService::new(ledger, ledger_clock, 1024 * 1024).unwrap();
         let publisher = EnrollmentService::new(
             EnrollmentStore::new(store, config).unwrap(),
@@ -260,4 +271,101 @@ async fn absent_common_publisher_does_not_upgrade_a_genuine_member_or_publicatio
         f.engine.publish_account_checkpoint(|| NOW).await,
         Err(Error::AccountUnavailable)
     ));
+}
+
+// A scheduled rulebook activation (a policy epoch transition): a boundary of
+// the publisher's schedule before the end of the current checkpoint slot
+// (NOW + 800). Snapshot deadlines cannot lie inside a published slot.
+const RULES_AT: u64 = NOW + 100;
+
+/// Publish the current slot while the trusted clock jumps to `target` inside
+/// the publisher's commit decision: after the ledger sampled its decision time,
+/// during the publisher's owner reads. Returns whether the jump happened.
+async fn publish_across(target: u64) -> (bool, Result<EnrollmentPublication>) {
+    use std::sync::atomic::{AtomicBool, Ordering};
+    let mut f = fixture(EXPIRY, EXPIRY).await;
+    let trust = publish_original_balance(&f).await;
+    let Outcome::Issued(issued) = issue_account(&mut f, DEVICES[0]).await.unwrap() else {
+        panic!("actual passport admission and Policy grant")
+    };
+    let value = delegation(issued.account.unwrap());
+    // Both native clocks report every sample of a ledger decision time.
+    let sampled = Arc::new(AtomicBool::new(false));
+    let sampling = |flag: Arc<AtomicBool>, read: Clock| -> LiveClock {
+        Box::new(move || {
+            flag.store(true, Ordering::SeqCst);
+            clbs::Clock::now(&read).unwrap() as u64
+        })
+    };
+    let (service, publisher) = services_with(
+        trust,
+        sampling(sampled.clone(), f.clock.clone()),
+        sampling(sampled.clone(), f.clock.clone()),
+    )
+    .await;
+    f.engine = f
+        .engine
+        .with_native_account_enrollment(service, publisher)
+        .await
+        .unwrap();
+    f.engine
+        .enroll_account(
+            Arc::new(f.auth.authentication.clone()),
+            value,
+            NOW,
+            Arc::new(Session(f.clock.clone())),
+        )
+        .await
+        .unwrap();
+    f.engine
+        .policy()
+        .lock()
+        .await
+        .schedule_rules(
+            Some(1),
+            crbk::Change {
+                rulebook: rulebook(),
+                announced_at: NOW as i64,
+                effective_at: RULES_AT as i64,
+                notice_seconds: 0,
+                policy_epoch: 2,
+            },
+        )
+        .await
+        .unwrap();
+    sampled.store(false, Ordering::SeqCst);
+    let jumped = Arc::new(AtomicBool::new(false));
+    let (done, clock) = (jumped.clone(), f.clock.clone());
+    let result = f
+        .engine
+        .publish_account_checkpoint(move || {
+            if sampled.load(Ordering::SeqCst) && !done.swap(true, Ordering::SeqCst) {
+                clock.0.store(target as i64, Ordering::SeqCst);
+            }
+            clbs::Clock::now(&clock).unwrap() as u64
+        })
+        .await;
+    f.engine
+        .account_shutdown()
+        .unwrap()
+        .shutdown()
+        .await
+        .unwrap();
+    (jumped.load(Ordering::SeqCst), result)
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn crossed_second_inside_publisher_reads_commits_without_a_scheduled_boundary() {
+    // Seconds crossed up to just before the boundary: the decision at the
+    // sampled time stays valid and commits.
+    let (jumped, result) = publish_across(RULES_AT - 1).await;
+    assert!(jumped, "{:?}", result.as_ref().err());
+    assert_eq!(result.unwrap().delegations.len(), 1);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn scheduled_boundary_crossed_inside_publisher_reads_refuses_commit() {
+    let (jumped, result) = publish_across(RULES_AT).await;
+    assert!(jumped);
+    assert!(matches!(result, Err(Error::Reconcile)));
 }

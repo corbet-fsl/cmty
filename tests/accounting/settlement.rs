@@ -78,10 +78,15 @@ struct Fixture {
     store: MemoryStore,
     late: Arc<AtomicBool>,
     advanced: Arc<AtomicBool>,
+    // Set whenever the native ledger samples its decision clock.
+    sampled: Arc<AtomicBool>,
     _db: crlt::Db,
     _directory: tempfile::TempDir,
 }
 async fn fixture() -> Fixture {
+    fixture_until(2000).await
+}
+async fn fixture_until(valid_until: u64) -> Fixture {
     let directory = tempfile::tempdir().unwrap();
     let db = support::open(
         &format!(
@@ -151,11 +156,16 @@ async fn fixture() -> Fixture {
     let store = MemoryStore::default();
     let native_store = store.clone();
     let read = clock.clone();
+    let sampled = Arc::new(AtomicBool::new(false));
+    let flag = sampled.clone();
     let service = tokio::task::spawn_blocking(move || {
         let ledger = native::ledger(trust, native_store);
         AccountService::new(
             ledger,
-            move || clbs::Clock::now(&read).unwrap() as u64,
+            move || {
+                flag.store(true, Ordering::SeqCst);
+                clbs::Clock::now(&read).unwrap() as u64
+            },
             1024 * 1024,
         )
         .unwrap()
@@ -191,7 +201,7 @@ async fn fixture() -> Fixture {
                 valid_until: 86_400,
                 gates: [gate].into(),
             },
-            valid_until: 2000,
+            valid_until,
             challenge_lifetime: 60,
         },
     )
@@ -205,6 +215,7 @@ async fn fixture() -> Fixture {
         store,
         late,
         advanced,
+        sampled,
         _db: db,
         _directory: directory,
     }
@@ -320,4 +331,52 @@ async fn awaited_balance_publication_at_exclusive_key_expiry_is_uncertain_and_fe
         Err(Error::Reconcile)
     ));
     shutdown.shutdown().await.unwrap();
+}
+
+// The snapshot deadline of these fixtures: a scheduled boundary of the daily
+// owner before the settlement window ends (200).
+const OWNER_UNTIL: u64 = 190;
+
+/// Reconcile while the trusted clock jumps to `target` inside the daily owner's
+/// commit decision: after the ledger sampled its decision time, during the
+/// owner reads. Returns whether the jump happened.
+async fn reconcile_across(target: u64) -> (bool, Result<Arc<cplc::cbcn::Feed>>) {
+    let f = fixture_until(OWNER_UNTIL).await;
+    let shutdown = f.host.account_shutdown().unwrap();
+    let (config, issuer) = issuer();
+    f.sampled.store(false, Ordering::SeqCst);
+    let (sampled, jumped) = (f.sampled.clone(), Arc::new(AtomicBool::new(false)));
+    let (done, live) = (jumped.clone(), f.clock.clone());
+    let result = f
+        .host
+        .reconcile_account_settlement(
+            PERIOD_KEY,
+            QUOTA_KEY,
+            config,
+            issuer,
+            "host-incarnation".into(),
+            Arc::new(move || {
+                if sampled.load(Ordering::SeqCst) && !done.swap(true, Ordering::SeqCst) {
+                    live.0.store(target as i64, Ordering::SeqCst);
+                }
+                clbs::Clock::now(&live).unwrap() as u64
+            }),
+        )
+        .await;
+    shutdown.shutdown().await.unwrap();
+    (jumped.load(Ordering::SeqCst), result)
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn crossed_seconds_inside_daily_owner_reads_commit_without_a_scheduled_boundary() {
+    let (jumped, result) = reconcile_across(OWNER_UNTIL - 1).await;
+    assert!(jumped);
+    result.unwrap();
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn scheduled_boundary_crossed_inside_daily_owner_reads_refuses_commit() {
+    let (jumped, result) = reconcile_across(OWNER_UNTIL).await;
+    assert!(jumped);
+    assert!(matches!(result, Err(Error::Reconcile)));
 }
