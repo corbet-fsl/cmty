@@ -179,11 +179,11 @@ async fn root_policy_epoch_replacement_refuses_the_old_signed_context_without_co
     {
         let mut policy = w.root.policy().lock().await;
         let mut schema = support::schema(4);
-        schema.community = "root".into();
+        schema.community = "adminboard".into();
         policy.set_schema(schema).await.unwrap();
         let next = RootBoardPublicKey::from_authenticated_beacon(
             w.descriptor.issuer().clone(),
-            CommunityId::new("root").unwrap(),
+            CommunityId::new("adminboard").unwrap(),
             policy.epoch(NOW).await.unwrap(),
             w.descriptor.cohort_start(),
         )

@@ -77,7 +77,7 @@ async fn root() -> Root {
         "",
     )
     .await;
-    let scope = CommunityId::new("root").unwrap();
+    let scope = CommunityId::new("adminboard").unwrap();
     let gate = GateId::new("global-test").unwrap();
     let mut rng = StdRng::seed_from_u64(1701);
     let global =
@@ -88,7 +88,7 @@ async fn root() -> Root {
         vec![GateId::new("root-board").unwrap()],
     )
     .unwrap();
-    let (mut policy, _) = support::policies_in(&db, rules(), "root").await;
+    let (mut policy, _) = support::policies_in(&db, rules(), "adminboard").await;
     let descriptor = RootBoardPublicKey::from_authenticated_beacon(
         common.public_key().clone(),
         scope.clone(),
@@ -132,9 +132,9 @@ async fn root() -> Root {
             membership: support::members_in(
                 &db,
                 Clock(Arc::new(AtomicI64::new(AT as i64))),
-                "root",
+                "adminboard",
             ),
-            gates: support::gates_in(&db, "root"),
+            gates: support::gates_in(&db, "adminboard"),
             policy,
         },
         support::config(EXPIRY, EXPIRY),
@@ -209,7 +209,7 @@ async fn joint_registration_and_renewal_issue_ordinary_membership_bounded_by_roo
         let Outcome::Issued(issued) = outcome else {
             panic!("expected real root membership credential")
         };
-        assert_eq!(issued.claims.community, "root");
+        assert_eq!(issued.claims.community, "adminboard");
         assert_eq!(
             issued.claims.member_id,
             f.holder.pseudonym(f.engine.community()).to_hex()
@@ -306,8 +306,9 @@ async fn policy_change_refuses_retained_joint_proof_and_previously_verified_regi
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn reserved_root_scope_requires_the_explicit_root_constructor() {
-    for (community, root_mode) in [("root", false), ("example", true)] {
+async fn the_board_is_selected_by_the_constructor_never_by_the_community_name() {
+    // A community NAMED root is an ordinary community; the board may carry any ordinary name.
+    for (community, root_mode) in [("root", false), ("example", true), ("adminboard", true)] {
         let directory = tempfile::tempdir().unwrap();
         let db = support::open(
             &format!("file://{}", directory.path().join("scope.db").display()),
@@ -349,6 +350,6 @@ async fn reserved_root_scope_requires_the_explicit_root_constructor() {
                 support::config(EXPIRY, EXPIRY),
             )
         };
-        assert!(matches!(engine, Err(cmty::Error::Scope)));
+        assert!(engine.is_ok(), "{community} board={root_mode}");
     }
 }

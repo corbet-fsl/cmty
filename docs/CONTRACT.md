@@ -220,7 +220,9 @@ by reading the existing pin, never by spending again.
 
 ## Mandatory root-board admission
 
-The reserved `root` community requires `Community::new_root_board`. Its retained
+The admin board (selected by the host through `Community::new_root_board`, never by the community
+name: a community called `root` is an ordinary community) requires that constructor. Its first
+admitted creator takes the Root seat of the platform role (`Membership::admit_first_root`). Its retained
 challenge contains the original CPSD joint root request and its current signed
 common descriptor. Ordinary passport verification refuses this mode before
 consuming the challenge. The actual joint verifier consumes the original nonce,

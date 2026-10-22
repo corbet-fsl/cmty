@@ -34,7 +34,7 @@ impl Challenge {
     pub fn request(&self) -> &PresentationRequest {
         &self.request
     }
-    /// Mandatory joint proof request, only for the reserved root community.
+    /// Mandatory joint proof request, only for the admin board (selected by the host, not by name).
     pub fn root_board_request(&self) -> Option<&cpsd::RootBoardRequest> {
         self.root_board.as_ref()
     }
@@ -149,8 +149,9 @@ where
         let store = storage.challenges();
         let community = store.community().clone();
         let name = community_text(&community)?;
-        if (name == "root") != root_board
-            || parts.policy.key_ring().map_err(policy_error)?.issuer() != name
+        // The admin board is selected by the host's constructor (public descriptor present), never by
+        // the community name: a community called "root" is an ordinary community.
+        if parts.policy.key_ring().map_err(policy_error)?.issuer() != name
             || parts.membership.community() != name
             || parts.gates.community() != name
         {
@@ -602,6 +603,9 @@ where
             return Ok(Outcome::Missing(decision));
         }
         let admitted = match admission.creation {
+            // The board's first seat is the Root seat of the platform role; every other community's
+            // creator is its first admin. `root_board` comes from the host's constructor.
+            Some(id) if self.root_board => self.membership.admit_first_root(request, id).await,
             Some(id) => self.membership.admit_first_admin(request, id).await,
             None => self.membership.admit_current(request).await,
         }

@@ -28,9 +28,6 @@ impl<T: ChallengeStore, R: crbk::Storage, P: cplc::Storage, K: csgn::Store>
         now: u64,
     ) -> Result<Self> {
         check_time(now)?;
-        if store.community().as_bytes() != b"root" {
-            return Err(Error::Scope);
-        }
         let owner = Self { store, key, policy };
         owner.current(&*owner.policy.lock().await, now).await?;
         Ok(owner)
@@ -46,7 +43,8 @@ impl<T: ChallengeStore, R: crbk::Storage, P: cplc::Storage, K: csgn::Store>
             .await
             .map_err(policy_error)?
             .ok_or(Error::Policy)?;
-        if policy.key_ring().map_err(policy_error)?.issuer() != "root"
+        if policy.key_ring().map_err(policy_error)?.issuer().as_bytes()
+            != self.store.community().as_bytes()
             || descriptor.community() != self.store.community()
             || descriptor.issuer() != self.key.public_key()
             || now >= until

@@ -189,17 +189,17 @@ pub async fn world() -> World {
         vec![GateId::new("root-board").unwrap()],
     )
     .unwrap();
-    let (mut policy, _) = support::policies_in(&root_db, support::rulebook(), "root").await;
+    let (mut policy, _) = support::policies_in(&root_db, support::rulebook(), "adminboard").await;
     let descriptor = RootBoardPublicKey::from_authenticated_beacon(
         common.public_key().clone(),
-        CommunityId::new("root").unwrap(),
+        CommunityId::new("adminboard").unwrap(),
         policy.epoch(NOW).await.unwrap(),
         NOW / ROOT_BOARD_COHORT_SECONDS * ROOT_BOARD_COHORT_SECONDS,
     )
     .unwrap();
     policy.publish_root_board(&descriptor, NOW).await.unwrap();
     let root_expected = AuthenticatedCommunity::from_authenticated_origin(
-        CommunityId::new("root").unwrap(),
+        CommunityId::new("adminboard").unwrap(),
         policy.key_ring().unwrap().clone(),
     );
     let cut = Arc::new(Cut::default());
@@ -207,7 +207,7 @@ pub async fn world() -> World {
         CutStorage {
             inner: cmty::storage::LibsqlStorage::new(
                 &root_db,
-                CommunityId::new("root").unwrap(),
+                CommunityId::new("adminboard").unwrap(),
                 32,
             )
             .unwrap(),
@@ -215,8 +215,8 @@ pub async fn world() -> World {
         },
         vec![global.public_key().clone()],
         Parts {
-            membership: support::members_in(&root_db, clock.clone(), "root"),
-            gates: support::gates_in(&root_db, "root"),
+            membership: support::members_in(&root_db, clock.clone(), "adminboard"),
+            gates: support::gates_in(&root_db, "adminboard"),
             policy,
         },
         support::config(EXPIRY, EXPIRY),

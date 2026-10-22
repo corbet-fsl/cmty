@@ -13,7 +13,9 @@ where
     P: cplc::Storage,
     K: csgn::Store,
 {
-    /// Compose the reserved root community with mandatory same-holder joint admission.
+    /// Compose the admin board with mandatory same-holder joint admission. The host selects the board
+    /// by calling this constructor (its public descriptor is present); the community name is
+    /// irrelevant, and its first seat is the Root seat of the platform role.
     pub fn new_root_board(
         storage: S,
         issuer_keys: Vec<IssuerPublicKey>,
