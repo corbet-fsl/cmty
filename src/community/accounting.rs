@@ -137,11 +137,7 @@ where
         self.gates
             .account_authorized(context, prepared.pseudonym, request, prepared.authority)
             .await
-            .map_err(|error| match error {
-                cgts::Error::Disabled => Error::AccountUnavailable,
-                cgts::Error::Storage | cgts::Error::Account(_) => Error::Reconcile,
-                _ => Error::Gate,
-            })
+            .map_err(account_error)
     }
 
     /// Publish the configured original epoch on the same native account owner,
@@ -304,6 +300,40 @@ fn host_time(clock: &impl Fn() -> u64, floor: &mut u64) -> Result<u64> {
     *floor = now;
     Ok(now)
 }
+/// A member account operation's failure. The ledger checks the request window
+/// before its transaction commits, so an expiry is a certain refusal, never a
+/// reconciliation case; every other owner failure may hide a committed effect.
+fn account_error(error: cgts::Error) -> Error {
+    match error {
+        cgts::Error::Disabled => Error::AccountUnavailable,
+        cgts::Error::Account(cgts::cblc::Error::Expired) => Error::AccountExpired,
+        cgts::Error::Storage | cgts::Error::Account(_) => Error::Reconcile,
+        _ => Error::Gate,
+    }
+}
+
+#[cfg(test)]
+mod account_error_tests {
+    use super::*;
+
+    #[test]
+    fn only_a_ledger_expiry_is_a_certain_refusal() {
+        assert_eq!(
+            account_error(cgts::Error::Account(cgts::cblc::Error::Expired)),
+            Error::AccountExpired
+        );
+        for uncertain in [
+            cgts::Error::Storage,
+            cgts::Error::Account(cgts::cblc::Error::Replay),
+            cgts::Error::Account(cgts::cblc::Error::Admission),
+        ] {
+            assert_eq!(account_error(uncertain), Error::Reconcile);
+        }
+        assert_eq!(account_error(cgts::Error::Disabled), Error::AccountUnavailable);
+        assert_eq!(account_error(cgts::Error::Refused), Error::Gate);
+    }
+}
+
 fn host_error(error: cgts::Error) -> Error {
     match error {
         cgts::Error::Disabled => Error::AccountUnavailable,

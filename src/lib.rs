@@ -48,6 +48,11 @@ pub enum Error {
     /// An account effect may be unknown; reconcile through original Status.
     #[error("account outcome requires reconciliation")]
     Reconcile,
+    /// The Balance owner refused the account request before commitment because
+    /// its signed window had elapsed: nothing was written, so the device may
+    /// prepare a fresh request. Never an uncertain outcome.
+    #[error("account request window elapsed")]
+    AccountExpired,
     /// Signing failed or returned inconsistent authenticated claims.
     #[error("credential signing failed")]
     Signing,
