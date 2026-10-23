@@ -58,7 +58,7 @@ their LGPL linking exception. No GPL/AGPL-only dependency is added.
 ## Validation and current limits
 
 CI runs formatting, Clippy, real integration tests and dependency
-checks. Cargo is never run on the workstation. Tests cover BBS, WebAuthn, pins,
+checks. Tests cover BBS, WebAuthn, pins,
 probation, expiry, replay, policy changes, revocations, blocks and restart.
 Optional Turso tests require both `TURSO_URL` and `TURSO_TOKEN` for an explicitly
 authorized disposable database.
