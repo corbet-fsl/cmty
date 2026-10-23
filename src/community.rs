@@ -1096,6 +1096,7 @@ mod tests {
             ("cpsd", crate::storage::SCHEMA),
             ("cmbr-device-keys", cmbr::DEVICE_KEYS_SCHEMA),
             ("cmbr-device-registry", cmbr::DEVICE_REGISTRY_SCHEMA),
+            ("cmbr-device-pairing", cmbr::DEVICE_PAIRING_SCHEMA),
         ]);
         let migrations: Vec<_> = schemas
             .iter()
