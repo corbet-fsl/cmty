@@ -31,15 +31,30 @@ pub(super) struct MemberCommit<M, L, C, R, P, K> {
     session: Arc<dyn AccountSession>,
     runtime: tokio::runtime::Handle,
     state: Mutex<State<R, P, K>>,
+    /// The member's Active device keys as the registry listed them when the request was
+    /// prepared. The commit-time `check` re-reads the registry; this snapshot only mints the
+    /// `CurrentDevice` witness that cblc's update entry points require.
+    devices: Vec<[u8; 32]>,
 }
+
+impl<M, L, C, R, P, K> cgts::cblc::current_device::CurrentLineage
+    for MemberCommit<M, L, C, R, P, K>
+{
+    fn is_current(&self, device: &[u8; 32]) -> bool {
+        self.devices.contains(device)
+    }
+}
+
 impl<M, L, C, R, P, K> MemberCommit<M, L, C, R, P, K> {
     pub(super) fn new(
         membership: cmbr::Membership<M, L, C>,
         authentication: Arc<ckyh::Authentication>,
         session: Arc<dyn AccountSession>,
         state: State<R, P, K>,
+        devices: Vec<[u8; 32]>,
     ) -> Self {
         Self {
+            devices,
             membership,
             authentication,
             session,
@@ -58,6 +73,9 @@ where
     P: cplc::Storage + Send + 'static,
     K: csgn::Store + Send + 'static,
 {
+    fn lineage(&self) -> Option<&dyn cgts::cblc::current_device::CurrentLineage> {
+        Some(self)
+    }
     fn check(&self, observed: u64) -> std::result::Result<(), cgts::cblc::Error> {
         let mut state = self.state.lock().map_err(|_| cgts::cblc::Error::Storage)?;
         if !state.valid || observed < state.observed {
@@ -246,6 +264,7 @@ where
                 valid: true,
                 enrollment: expected.clone(),
             },
+            facts.authorized_devices.clone(),
         ));
         Ok(Prepared {
             settings,
