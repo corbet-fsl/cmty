@@ -329,7 +329,10 @@ mod account_error_tests {
         ] {
             assert_eq!(account_error(uncertain), Error::Reconcile);
         }
-        assert_eq!(account_error(cgts::Error::Disabled), Error::AccountUnavailable);
+        assert_eq!(
+            account_error(cgts::Error::Disabled),
+            Error::AccountUnavailable
+        );
         assert_eq!(account_error(cgts::Error::Refused), Error::Gate);
     }
 }
