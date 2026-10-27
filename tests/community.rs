@@ -1856,6 +1856,7 @@ async fn finish_vetoes_gate_check_after_transient_legal_record() {
                     kind: clbs::OrderKind::Legal {
                         authority: "test-authority".into(),
                     },
+                    scope: clbs::Scope::Member,
                 };
                 let proof_bytes = SigningKey::from_bytes(&[7; 32])
                     .sign(&order.signing_payload().unwrap())

@@ -1025,6 +1025,7 @@ mod tests {
             kind: clbs::OrderKind::Legal {
                 authority: "test-authority".into(),
             },
+            scope: clbs::Scope::Member,
         };
         let proof = SigningKey::from_bytes(&[7; 32])
             .sign(&order.signing_payload().unwrap())
