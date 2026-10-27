@@ -143,6 +143,8 @@ pub async fn open(url: &str, token: &str) -> crlt::Db {
         ("cmbr-device-keys", cmbr::DEVICE_KEYS_SCHEMA),
         ("cmbr-device-registry", cmbr::DEVICE_REGISTRY_SCHEMA),
         ("cmbr-creation", cmbr::CREATION_SCHEMA),
+        // Test-only tail matching production: order scope (P4b).
+        ("clbs-scope", cgts::legal_storage::SCOPE_SCHEMA),
     ]);
     let migrations: Vec<_> = schemas
         .iter()
