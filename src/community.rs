@@ -369,6 +369,27 @@ where
             .map_err(member_error)
     }
 
+    /// Stamped pairing, step one, for a DELEGATED key: the same passport checks as
+    /// `add_device_key`; the membership requires `host` to be an ACTIVE full device key of the
+    /// same member and registers the key PENDING in class `Delegated` (community sessions only).
+    pub async fn add_delegated_device_key(
+        &self,
+        passport: VerifiedPassport,
+        device_key: [u8; 32],
+        host: [u8; 32],
+        now: u64,
+    ) -> Result<()> {
+        if passport.community != self.community || passport.verified_at != now {
+            return Err(Error::Passport);
+        }
+        let policy = self.policy.lock().await;
+        self.passport_current(&passport, &policy, now).await?;
+        self.membership
+            .add_delegated_device_key(&passport.member_id, device_key, host)
+            .await
+            .map_err(member_error)
+    }
+
     /// Stamped pairing, step two: the host verified the activation stamp. Makes the PENDING
     /// key ACTIVE; idempotent for an already active key.
     pub async fn activate_device_key(
@@ -1098,6 +1119,7 @@ mod tests {
             ("cmbr-device-keys", cmbr::DEVICE_KEYS_SCHEMA),
             ("cmbr-device-registry", cmbr::DEVICE_REGISTRY_SCHEMA),
             ("cmbr-device-pairing", cmbr::DEVICE_PAIRING_SCHEMA),
+            ("cmbr-device-class", cmbr::DEVICE_CLASS_SCHEMA),
         ]);
         let migrations: Vec<_> = schemas
             .iter()
