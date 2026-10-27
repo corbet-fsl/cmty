@@ -879,7 +879,7 @@ dependencies = [
 [[package]]
 name = "cgts"
 version = "0.0.0"
-source = "git+https://git.corbet.ch/corbet-libs/cgts?branch=main#edf86fad5d92c789e1e5145c76b485249429d0e8"
+source = "git+https://git.corbet.ch/corbet-libs/cgts?branch=main#a0ae9c10bc28e6157069825673cc6f563c8e91c8"
 dependencies = [
  "cblc",
  "cgrd",
@@ -1021,7 +1021,7 @@ dependencies = [
 [[package]]
 name = "clbs"
 version = "0.0.0"
-source = "git+https://git.corbet.ch/corbet-foss/clbs?branch=main#4c3bbeb33ce290ca3d5f1a518928c1447d1f9280"
+source = "git+https://git.corbet.ch/corbet-foss/clbs?branch=main#7e05c91476ea1791bc667d8dad3fac0c732f4201"
 dependencies = [
  "serde",
  "serde_json",
