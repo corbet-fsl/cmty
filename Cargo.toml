@@ -5,25 +5,25 @@ edition = "2024"
 rust-version = "1.95"
 description = "Community facade of cvld: membership, gatekeeping and policy per community"
 license = "FSL-1.1-ALv2"
-repository = "https://git.corbet.ch/corbet-libs/cmty"
+repository = "https://git.corbet.ch/corbet-fsl/cmty.git"
 readme = "README.md"
 publish = false
 include = ["Cargo.toml", "src/**", "docs/**", "README.md", "LICENSE.md"]
 
 [dependencies]
-crgs = { git = "https://git.corbet.ch/corbet-foss/crgs", branch = "main" }
-clbs = { git = "https://git.corbet.ch/corbet-foss/clbs", branch = "main" }
-cpns = { git = "https://git.corbet.ch/corbet-foss/cpns", branch = "main" }
-ckyh = { git = "https://git.corbet.ch/corbet-foss/ckyh", branch = "main" }
-cmbr = { git = "https://git.corbet.ch/corbet-libs/cmbr", branch = "main" }
-cgts = { git = "https://git.corbet.ch/corbet-libs/cgts", branch = "main" }
+crgs = { git = "https://git.corbet.ch/corbet-libre/crgs.git", branch = "main" }
+clbs = { git = "https://git.corbet.ch/corbet-libre/clbs.git", branch = "main" }
+cpns = { git = "https://git.corbet.ch/corbet-libre/cpns.git", branch = "main" }
+ckyh = { git = "https://git.corbet.ch/corbet-libre/ckyh.git", branch = "main" }
+cmbr = { git = "https://git.corbet.ch/corbet-fsl/cmbr.git", branch = "main" }
+cgts = { git = "https://git.corbet.ch/corbet-fsl/cgts.git", branch = "main" }
 chrono = { version = "0.4.45", default-features = false, features = ["std"] }
-cplc = { git = "https://git.corbet.ch/corbet-libs/cplc", branch = "main" }
+cplc = { git = "https://git.corbet.ch/corbet-fsl/cplc.git", branch = "main" }
 tokio = { version = "1", features = ["rt", "sync", "time"] }
-crlt = { git = "https://git.corbet.ch/corbet-foss/crlt", branch = "main" }
-cpsd = { git = "https://git.corbet.ch/corbet-foss/cpsd", branch = "main" }
-crbk = { git = "https://git.corbet.ch/corbet-foss/crbk", branch = "main" }
-csgn = { git = "https://git.corbet.ch/corbet-foss/csgn", branch = "main", default-features = false }
+crlt = { git = "https://git.corbet.ch/corbet-libre/crlt.git", branch = "main" }
+cpsd = { git = "https://git.corbet.ch/corbet-libre/cpsd.git", branch = "main" }
+crbk = { git = "https://git.corbet.ch/corbet-libre/crbk.git", branch = "main" }
+csgn = { git = "https://git.corbet.ch/corbet-libre/csgn.git", branch = "main", default-features = false }
 data-encoding = "2.9"
 sha2 = "0.10"
 serde = { version = "1", features = ["derive"] }
@@ -31,25 +31,20 @@ serde_json = "1"
 thiserror = "2"
 
 [dev-dependencies]
-cvch = { git = "https://git.corbet.ch/corbet-foss/cvch", branch = "main" }
-cgbl = { git = "https://git.corbet.ch/corbet-libs/cgbl.git", branch = "main" }
-cnrl = { git = "https://git.corbet.ch/corbet-foss/cnrl", branch = "main" }
-cgrd = { git = "https://git.corbet.ch/corbet-foss/cgrd", branch = "main" }
-cssr = { git = "https://git.corbet.ch/corbet-foss/cssr", branch = "main" }
+cvch = { git = "https://git.corbet.ch/corbet-foss/cvch.git", branch = "main" }
+cgbl = { git = "https://git.corbet.ch/corbet-fsl/cgbl.git", branch = "main" }
+cnrl = { git = "https://git.corbet.ch/corbet-libre/cnrl.git", branch = "main" }
+cgrd = { git = "https://git.corbet.ch/corbet-libre/cgrd.git", branch = "main" }
+cssr = { git = "https://git.corbet.ch/corbet-libre/cssr.git", branch = "main" }
 ed25519-dalek = "2.2"
 openssl = "0.10"
 zeroize = "1"
 webauthn-authenticator-rs = { version = "0.5.5", default-features = false, features = ["softtoken"] }
 rand = { version = "0.8", features = ["std_rng"] }
-csgn = { git = "https://git.corbet.ch/corbet-foss/csgn", branch = "main", features = ["signer", "volatile-signer"] }
+csgn = { git = "https://git.corbet.ch/corbet-libre/csgn.git", branch = "main", features = ["signer", "volatile-signer"] }
 tempfile = "3"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "sync", "time"] }
 
-[profile.dev.package."*"]
-opt-level = 3
-
-[profile.test]
-opt-level = 3
 
 [lints.rust]
 unsafe_code = "forbid"
