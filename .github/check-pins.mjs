@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-const corbetSource = /^git\+https:\/\/(?:github\.com|git\.corbet\.ch)\/(?:corbet-(?:foss|libs)|cmtymeet)\//;
+const corbetSource = /^git\+https:\/\/(?:github\.com|git\.corbet\.ch)\/(?:corbet-(?:foss|fsl|libre)|cmtymt)\//;
 
 function resolvedPackages(metadata) {
   if (!metadata.resolve || !Array.isArray(metadata.resolve.nodes)) {

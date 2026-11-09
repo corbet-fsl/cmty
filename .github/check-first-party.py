@@ -8,7 +8,7 @@ import tomllib
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
-FIRST_PARTY = re.compile(r"^(?:git\+)?https://(?:git\.corbet\.ch|github\.com)/(?:corbet-(?:foss|libs)|cmtymeet)/")
+FIRST_PARTY = re.compile(r"^(?:git\+)?https://(?:git\.corbet\.ch|github\.com)/(?:corbet-(?:foss|fsl|libre)|cmtymt)/")
 SHA = re.compile(r"^[0-9a-f]{40}$")
 # These are the original transitive issuer owners, not alternative selectors
 # for product declarations. The maintained CBLC issuer still consumes them.
@@ -157,7 +157,7 @@ def check_original_issuer_fixtures():
 
 def self_test():
     for domain in ('git.corbet.ch', 'github.com'):
-        for organization in ('corbet-foss', 'corbet-libs', 'cmtymeet'):
+        for organization in ('corbet-foss', 'corbet-fsl', 'corbet-libre', 'cmtymt'):
             self_test_for(f'https://{domain}/{organization}/example')
     check_original_issuer_fixtures()
 
