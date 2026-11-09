@@ -1,5 +1,6 @@
 //! Actual permanent legal blocks refuse every root-board issuance step.
 use super::*;
+use crate::support;
 use ed25519_dalek::{Signer, SigningKey};
 
 fn order(subject: String, action: &str) -> clbs::SignedOrder {

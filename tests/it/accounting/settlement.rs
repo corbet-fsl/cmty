@@ -2,6 +2,7 @@
 //! The untouched activation proof initializes only this empty native owner;
 //! these tests do not claim a member account or a changed-inbox R2 opening.
 use super::*;
+use crate::support;
 use cmty::cgts::cblc::{
     settlement::{SettlementConfig, SettlementIssuer},
     storage::{AccountStorage, MemoryStore},

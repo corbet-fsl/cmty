@@ -4,7 +4,7 @@
 mod enrollment;
 #[path = "accounting/settlement.rs"]
 mod settlement;
-mod support;
+use crate::support::*;
 use cmty::{
     cgts::cblc::{accounting::*, accounting_ledger::*, accounting_service::*, admission::*},
     *,
@@ -13,7 +13,6 @@ use data_encoding::BASE64URL_NOPAD as B64;
 use ed25519_dalek::{Signer, SigningKey};
 use sha2::{Digest, Sha256};
 use std::sync::Arc;
-use support::*;
 
 // The fixture host's actual clock and exclusive session lifetime. These owner
 // boundary tests install no native service and cannot authorize a proof.

@@ -1,6 +1,6 @@
 //! Full admission through real membership, gatekeeping, policy and libSQL.
-mod support;
 
+use crate::support::*;
 use cmty::{storage::MemoryStorage, *};
 use cnrl::State;
 use cpsd::rand::{SeedableRng, rngs::StdRng};
@@ -9,7 +9,6 @@ use std::sync::{
     Arc,
     atomic::{AtomicBool, AtomicI64, AtomicUsize, Ordering},
 };
-use support::*;
 
 fn issued(outcome: Outcome) -> Box<IssuedCredential> {
     match outcome {

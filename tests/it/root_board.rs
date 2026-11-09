@@ -1,16 +1,16 @@
 //! Root admission through real CPSD blind issuance, durable challenge storage,
 //! passkeys, Membership, Gatekeeping and Policy. No synthetic admitted row.
+use crate::support;
 #[path = "root_board/creation.rs"]
 mod creation;
-mod support;
 
+use crate::support::{Clock, DEVICES, EXPIRY, Engine, NOW, ORIGIN, USER};
 use cmty::*;
 use cpsd::{
     rand::{SeedableRng, rngs::StdRng},
     *,
 };
 use std::sync::{Arc, atomic::AtomicI64};
-use support::{Clock, DEVICES, EXPIRY, Engine, NOW, ORIGIN, USER};
 use webauthn_authenticator_rs::{AuthenticatorBackend, softtoken::SoftToken};
 
 // Exercise the credential cap near the end of a common root cohort, while the

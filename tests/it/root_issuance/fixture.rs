@@ -1,5 +1,6 @@
 //! Actual passport, passkey, admitted membership and original role register.
 use super::*;
+use crate::support;
 use cuts::{Cut, CutChallenges, CutStorage};
 use webauthn_authenticator_rs::{AuthenticatorBackend, softtoken::SoftToken};
 

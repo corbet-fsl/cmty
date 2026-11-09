@@ -1,13 +1,14 @@
 //! Real source-role issuance into the existing same-holder root credential.
 //! Role setup provisions an existing register role after actual admission.
+use crate::support;
 #[path = "root_issuance/cuts.rs"]
 mod cuts;
 #[path = "root_issuance/fixture.rs"]
 mod fixture;
 #[path = "root_issuance/legal.rs"]
 mod legal;
-mod support;
 
+use crate::support::{Clock, DEVICES, EXPIRY, Engine, NOW, ORIGIN, USER};
 use cmty::*;
 use cpsd::{
     rand::{SeedableRng, rngs::StdRng},
@@ -18,7 +19,6 @@ use std::sync::{
     atomic::{AtomicI64, Ordering},
 };
 use std::time::Duration;
-use support::{Clock, DEVICES, EXPIRY, Engine, NOW, ORIGIN, USER};
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn actual_source_admin_issues_once_and_original_holder_proves_root_admission() {

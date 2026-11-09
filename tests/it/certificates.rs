@@ -1,7 +1,6 @@
 //! Original authenticated-key certificates and actual revocation publication.
-mod support;
+use crate::support::*;
 use cmty::*;
-use support::*;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn current_registered_passkey_certificate_is_separate_from_admission() {
