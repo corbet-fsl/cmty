@@ -77,7 +77,7 @@ pub async fn bootstrap<S: Storage>(
         .begin_registration(verified, user, now)
         .await
         .unwrap();
-    let mut token = SoftToken::new(true).unwrap().0;
+    let mut token = SoftwareToken::new(true).unwrap().0;
     let mut options = request.public_key;
     options
         .authenticator_selection

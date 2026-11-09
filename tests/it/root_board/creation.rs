@@ -106,7 +106,7 @@ pub(super) async fn enrol(
         holder.pseudonym(engine.community()).to_hex()
     );
     let (request, pending) = engine.begin_registration(verified, user, AT).await.unwrap();
-    let mut device = SoftToken::new(true).unwrap().0;
+    let mut device = SoftwareToken::new(true).unwrap().0;
     let mut options = request.public_key;
     options
         .authenticator_selection

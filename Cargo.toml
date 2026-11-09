@@ -39,7 +39,8 @@ cssr = { git = "https://git.corbet.ch/corbet-libre/cssr.git", branch = "main" }
 ed25519-dalek = "2.2"
 openssl = "0.10"
 zeroize = "1"
-webauthn-authenticator-rs = { version = "0.5.5", default-features = false, features = ["softtoken"] }
+webauthn-rs-proto = "0.5.5"
+cpky = { git = "https://git.corbet.ch/corbet-libre/cpky.git", branch = "main", features = ["test-authenticator"] }
 rand = { version = "0.8", features = ["std_rng"] }
 csgn = { git = "https://git.corbet.ch/corbet-libre/csgn.git", branch = "main", features = ["signer", "volatile-signer"] }
 tempfile = "3"

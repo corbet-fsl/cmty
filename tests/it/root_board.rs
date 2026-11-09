@@ -4,14 +4,13 @@ use crate::support;
 #[path = "root_board/creation.rs"]
 mod creation;
 
-use crate::support::{Clock, DEVICES, EXPIRY, Engine, NOW, ORIGIN, USER};
+use crate::support::{Clock, DEVICES, EXPIRY, Engine, NOW, ORIGIN, SoftwareToken, USER};
 use cmty::*;
 use cpsd::{
     rand::{SeedableRng, rngs::StdRng},
     *,
 };
 use std::sync::{Arc, atomic::AtomicI64};
-use webauthn_authenticator_rs::{AuthenticatorBackend, softtoken::SoftToken};
 
 // Exercise the credential cap near the end of a common root cohort, while the
 // global passport remains valid for several more weeks.

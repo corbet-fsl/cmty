@@ -15,7 +15,8 @@ use cpsd::{
     *,
 };
 use ed25519_dalek::{Signer, SigningKey};
-use webauthn_authenticator_rs::{AuthenticatorBackend, softtoken::SoftToken};
+pub mod softtoken;
+pub use softtoken::SoftwareToken;
 
 mod creation;
 // Each test binary uses a different subset of the shared fixtures.
@@ -438,12 +439,12 @@ pub async fn fixture_with_identity<S: Storage>(
         .begin_registration(verified, USER, NOW)
         .await
         .unwrap();
-    let mut device = SoftToken::new(true).unwrap().0;
+    let mut device = SoftwareToken::new(true).unwrap().0;
     let response = device
         .perform_register(
             ckyh::Url::parse(ORIGIN).unwrap(),
             {
-                // SoftToken is a legacy non-resident fixture.
+                // SoftwareToken is a legacy non-resident fixture.
                 let mut options = request.public_key;
                 options
                     .authenticator_selection

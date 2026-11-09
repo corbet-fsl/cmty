@@ -1,8 +1,8 @@
 //! Actual passport, passkey, admitted membership and original role register.
 use super::*;
 use crate::support;
+use crate::support::SoftwareToken;
 use cuts::{Cut, CutChallenges, CutStorage};
-use webauthn_authenticator_rs::{AuthenticatorBackend, softtoken::SoftToken};
 
 pub type Issuer = RootBoardIssuer<
     CutChallenges,
@@ -261,7 +261,7 @@ async fn enrol(
         .begin_registration(verified, USER, NOW)
         .await
         .unwrap();
-    let mut device = SoftToken::new(true).unwrap().0;
+    let mut device = SoftwareToken::new(true).unwrap().0;
     let mut options = request.public_key;
     options
         .authenticator_selection

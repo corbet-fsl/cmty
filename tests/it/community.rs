@@ -1242,7 +1242,7 @@ async fn loosening_a_pinned_field_allows_renewal_and_preserves_later_tightening(
 
 #[tokio::test(flavor = "multi_thread")]
 async fn another_passkey_preserves_admission_after_original_device_removal() {
-    use webauthn_authenticator_rs::{AuthenticatorBackend, softtoken::SoftToken};
+    use crate::support::SoftwareToken;
     let mut f = fixture(EXPIRY, EXPIRY).await;
     let before = issued(f.issue().await);
     let first_authentication = f.auth.authentication.clone();
@@ -1251,12 +1251,12 @@ async fn another_passkey_preserves_admission_after_original_device_removal() {
         .begin_additional_registration(&first_authentication)
         .await
         .unwrap();
-    let mut second = SoftToken::new(true).unwrap().0;
+    let mut second = SoftwareToken::new(true).unwrap().0;
     let response = second
         .perform_register(
             ckyh::Url::parse(ORIGIN).unwrap(),
             {
-                // SoftToken is a legacy non-resident fixture.
+                // SoftwareToken is a legacy non-resident fixture.
                 let mut options = options.public_key;
                 options
                     .authenticator_selection
@@ -2256,7 +2256,7 @@ impl<P: cplc::Storage> cplc::Storage for FailNthCommit<P> {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn flush_rejects_second_publication_commit_failure() {
-    use webauthn_authenticator_rs::{AuthenticatorBackend, softtoken::SoftToken};
+    use crate::support::SoftwareToken;
     let directory = tempfile::tempdir().unwrap();
     let db = open(
         &format!("file://{}", directory.path().join("wrapped.db").display()),
@@ -2341,7 +2341,7 @@ async fn flush_rejects_second_publication_commit_failure() {
         .begin_registration(verified, USER, NOW)
         .await
         .unwrap();
-    let mut device = SoftToken::new(true).unwrap().0;
+    let mut device = SoftwareToken::new(true).unwrap().0;
     let response = device
         .perform_register(
             ckyh::Url::parse(ORIGIN).unwrap(),
