@@ -31,7 +31,7 @@ serde_json = "1"
 thiserror = "2"
 
 [dev-dependencies]
-cvch = { git = "https://git.corbet.ch/corbet-foss/cvch.git", branch = "main" }
+cvch = { git = "https://git.corbet.ch/corbet-libre/cvch.git", branch = "main" }
 cgbl = { git = "https://git.corbet.ch/corbet-fsl/cgbl.git", branch = "main" }
 cnrl = { git = "https://git.corbet.ch/corbet-libre/cnrl.git", branch = "main" }
 cgrd = { git = "https://git.corbet.ch/corbet-libre/cgrd.git", branch = "main" }
@@ -45,7 +45,6 @@ rand = { version = "0.8", features = ["std_rng"] }
 csgn = { git = "https://git.corbet.ch/corbet-libre/csgn.git", branch = "main", features = ["signer", "volatile-signer"] }
 tempfile = "3"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "sync", "time"] }
-
 
 [lints.rust]
 unsafe_code = "forbid"
