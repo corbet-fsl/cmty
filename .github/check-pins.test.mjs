@@ -118,7 +118,7 @@ test('reject retired owner substitutions, aliases, versions and duplicate identi
 
 test('reject altered and unresolved original transitive selectors', () => {
   const name = 'cmbl';
-  const declaration = `git+https://git.corbet.ch/corbet-foss/${name}.git?branch=v01`;
+  const declaration = `git+https://git.corbet.ch/corbet-libre/${name}.git?branch=v01`;
   const owner = { ...pkg(name, `${declaration}#${revision}`), version: '0.1.0' };
   for (const raw of [
     declaration.replace('v01', 'v02'),
