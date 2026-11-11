@@ -12,10 +12,9 @@ FIRST_PARTY = re.compile(r"^(?:git\+)?https://(?:git\.corbet\.ch|github\.com)/(?
 SHA = re.compile(r"^[0-9a-f]{40}$")
 # These are the original transitive issuer owners, not alternative selectors
 # for product declarations. The maintained CBLC issuer still consumes them.
-ORIGINAL_ISSUERS = {
-    'cmbl': ('0.1.0', 'https://git.corbet.ch/corbet-foss/cmbl.git'),
-    'cmmr': ('0.1.0', 'https://git.corbet.ch/corbet-foss/cmmr.git'),
-}
+# The v01 original-issuer exceptions ended with the 2026-11 org move (every pin
+# is branch = main at its new owner); the map stays as the extension point.
+ORIGINAL_ISSUERS = {}
 
 
 
