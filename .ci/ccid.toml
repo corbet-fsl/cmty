@@ -23,7 +23,7 @@ render_schema = 2
 
 [jobs.verify]
 scheduler = "forgejo"
-runs_on = "heavy"
+runs_on = "linux"
 checks = ["verify", "advisories"]
 workflow = "ci"
 command = ["bash", ".ci/run-cached.sh"]
@@ -31,7 +31,7 @@ command = ["bash", ".ci/run-cached.sh"]
 # Retain the reviewed integration graph before a separate locked verification.
 [jobs.resolve-dependencies]
 scheduler = "forgejo"
-runs_on = "heavy"
+runs_on = "linux"
 events = ["manual"]
 checks = ["resolve-dependencies"]
 workflow = "resolve"
